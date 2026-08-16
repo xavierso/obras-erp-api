@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Variables de entorno
+.env
+
+# Directorios de almacenamiento local
+storage/
+
+# Herramientas de testeo y Git
+.pytest_cache/
+.git/
+.gitignore
