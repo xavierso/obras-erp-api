@@ -21,8 +21,10 @@ from app.database import Base
 
 
 class RolUsuario(str, enum.Enum):
-    ADMIN = "admin"
-    INSPECTOR = "inspector"
+    ADMIN = "ADMIN"
+    DIRECTOR = "DIRECTOR"
+    INSPECTOR = "INSPECTOR"
+    LECTOR = "LECTOR"
 
 
 class Usuario(Base):

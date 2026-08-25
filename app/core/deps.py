@@ -43,18 +43,14 @@ async def get_current_user(
 async def get_empresa_id(usuario: Usuario = Depends(get_current_user)) -> int:
     """
     Devuelve el id que identifica la "empresa" a la que pertenecen las
-    obras: el propio id si es admin, o el admin_id si es inspector.
-
-    Todos los routers que listan/consultan obras (y lo que cuelga de
-    ellas) deben filtrar por este id en vez de por usuario.id directo,
-    para que admin e inspectores del mismo equipo vean las mismas obras.
+    obras: el propio id si es admin, o el admin_id si es otro rol.
     """
     if usuario.rol == RolUsuario.ADMIN:
         return usuario.id
     if usuario.admin_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tu cuenta de inspector no está vinculada a ninguna empresa",
+            detail="Tu cuenta no está vinculada a ninguna empresa",
         )
     return usuario.admin_id
 
@@ -69,5 +65,30 @@ async def require_admin(usuario: Usuario = Depends(get_current_user)) -> Usuario
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Esta acción solo está disponible para administradores",
+        )
+    return usuario
+
+
+async def require_director(usuario: Usuario = Depends(get_current_user)) -> Usuario:
+    """
+    Para endpoints accesibles por ADMIN y DIRECTOR (gestión de obras, citas, informes).
+    """
+    if usuario.rol not in (RolUsuario.ADMIN, RolUsuario.DIRECTOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta acción requiere rol de Administrador o Director",
+        )
+    return usuario
+
+
+async def require_inspector_or_higher(usuario: Usuario = Depends(get_current_user)) -> Usuario:
+    """
+    Para endpoints de registro de visitas (ADMIN, DIRECTOR, INSPECTOR).
+    LECTOR queda excluido.
+    """
+    if usuario.rol not in (RolUsuario.ADMIN, RolUsuario.DIRECTOR, RolUsuario.INSPECTOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta acción requiere rol de Inspector o superior",
         )
     return usuario

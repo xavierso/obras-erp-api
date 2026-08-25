@@ -101,17 +101,17 @@ async def aceptar_invitacion(datos: AceptarInvitacionRequest, db: AsyncSession =
             detail="Ya existe una cuenta con ese email",
         )
 
-    nuevo_inspector = Usuario(
+    nuevo_usuario = Usuario(
         email=invitacion.email,
         nombre=datos.nombre,
         hashed_password=hash_password(datos.password),
-        rol=RolUsuario.INSPECTOR,
+        rol=invitacion.rol,
         admin_id=invitacion.admin_id,
     )
-    db.add(nuevo_inspector)
+    db.add(nuevo_usuario)
     invitacion.estado = EstadoInvitacion.ACEPTADA
     await db.commit()
-    await db.refresh(nuevo_inspector)
+    await db.refresh(nuevo_usuario)
 
-    token = create_access_token(nuevo_inspector.id)
+    token = create_access_token(nuevo_usuario.id)
     return Token(access_token=token)

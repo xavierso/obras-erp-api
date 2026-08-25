@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/documentos", tags=["Documentos (vista global)"])
 @router.get("", response_model=list[DocumentoConObraOut])
 async def listar_todos_los_documentos(
     categoria: CategoriaDocumento | None = None,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     query = (

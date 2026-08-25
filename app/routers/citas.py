@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.cita_visita import CitaVisita, EstadoCita
 from app.models.obra import Obra
@@ -37,7 +37,7 @@ async def _obtener_cita_de_la_empresa(cita_id: int, admin: Usuario, db: AsyncSes
 @router.post("", response_model=CitaVisitaOut, status_code=status.HTTP_201_CREATED)
 async def crear_cita(
     datos: CitaVisitaCreate,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     if datos.obra_id is not None:
@@ -74,7 +74,7 @@ async def listar_citas(
     desde: datetime | None = None,
     hasta: datetime | None = None,
     obra_id: int | None = None,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(CitaVisita).where(CitaVisita.usuario_id == admin.id)
@@ -94,7 +94,7 @@ async def listar_citas(
 @router.get("/{cita_id}", response_model=CitaVisitaOut)
 async def consultar_cita(
     cita_id: int,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     return await _obtener_cita_de_la_empresa(cita_id, admin, db)
@@ -104,7 +104,7 @@ async def consultar_cita(
 async def reprogramar_cita(
     cita_id: int,
     datos: CitaVisitaUpdate,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
@@ -133,7 +133,7 @@ async def reprogramar_cita(
 async def cambiar_estado_cita(
     cita_id: int,
     datos: CitaVisitaEstadoUpdate,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
@@ -146,7 +146,7 @@ async def cambiar_estado_cita(
 @router.delete("/{cita_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_cita(
     cita_id: int,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)

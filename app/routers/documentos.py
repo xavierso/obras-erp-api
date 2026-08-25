@@ -1,12 +1,12 @@
 """
 Gestión documental por categorías. Restringido a admins — los inspectores
-no gestionan documentación, solo registran visitas (ver deps.require_admin).
+no gestionan documentación, solo registran visitas (ver deps.require_director).
 """
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
@@ -43,7 +43,7 @@ async def subir_documento(
     obra_id: int,
     categoria: CategoriaDocumento = Form(...),
     archivo: UploadFile = File(...),
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)
@@ -71,7 +71,7 @@ async def subir_documento(
 async def listar_documentos(
     obra_id: int,
     categoria: CategoriaDocumento | None = None,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)

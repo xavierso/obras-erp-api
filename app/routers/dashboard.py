@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.usuario import Usuario
 from app.services.dashboard_service import obtener_resumen_dashboard
@@ -19,7 +19,7 @@ class ResumenDashboard(BaseModel):
 
 @router.get("/resumen", response_model=ResumenDashboard)
 async def resumen(
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     return await obtener_resumen_dashboard(admin.id, db)

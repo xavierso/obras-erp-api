@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.obra import Obra
 from app.models.perfil_empresa import PerfilEmpresa
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/obras/{obra_id}/informe", tags=["Informes"])
 async def generar_informe(
     obra_id: int,
     visita_id: int | None = None,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     """

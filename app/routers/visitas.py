@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_empresa_id
+from app.core.deps import get_current_user, get_empresa_id, require_inspector_or_higher
 from app.database import get_db
 from app.models.obra import Obra
 from app.models.usuario import Usuario
@@ -53,7 +53,7 @@ async def registrar_visita(
     obra_id: int,
     descripcion: str | None = Form(default=None),
     archivos: list[UploadFile] = File(default=[]),
-    usuario: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(require_inspector_or_higher),
     empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -133,7 +133,7 @@ async def actualizar_visita(
     visita_id: int,
     descripcion: str | None = Form(default=None),
     archivos: list[UploadFile] = File(default=[]),
-    usuario: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(require_inspector_or_higher),
     empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):

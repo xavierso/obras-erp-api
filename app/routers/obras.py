@@ -10,10 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_empresa_id, require_admin
+from app.core.deps import get_current_user, get_empresa_id, require_director
 from app.database import get_db
-from app.models.obra import Obra
-from app.models.usuario import Usuario
+from app.models.obra import EstadoObra, Obra
+from app.models.usuario import RolUsuario, Usuario
 from app.models.visita import Visita
 from app.schemas.obra import ObraCreate, ObraDetalleUpdate, ObraEstadoUpdate, ObraOut
 from app.services.obra_service import generar_codigo_obra
@@ -46,16 +46,18 @@ async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
 @router.post("", response_model=ObraOut, status_code=status.HTTP_201_CREATED)
 async def crear_obra(
     datos: ObraCreate,
-    admin: Usuario = Depends(require_admin),
+    director: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     codigo = await generar_codigo_obra(db)
+    # director.id si es admin, o director.admin_id si es director real
+    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     nueva_obra = Obra(
         codigo=codigo,
         nombre=datos.nombre,
         cliente=datos.cliente,
         direccion=datos.direccion,
-        usuario_id=admin.id,
+        usuario_id=empresa_id,
     )
     db.add(nueva_obra)
     await db.commit()
@@ -66,11 +68,15 @@ async def crear_obra(
 @router.get("", response_model=list[ObraOut])
 async def listar_obras(
     empresa_id: int = Depends(get_empresa_id),
+    usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Obra).where(Obra.usuario_id == empresa_id).order_by(Obra.created_at.desc())
-    )
+    query = select(Obra).where(Obra.usuario_id == empresa_id)
+    if usuario.rol == RolUsuario.LECTOR:
+        query = query.where(Obra.estado.not_in([EstadoObra.ARCHIVADA, EstadoObra.ENTREGADA, EstadoObra.FINALIZADA]))
+    
+    query = query.order_by(Obra.created_at.desc())
+    result = await db.execute(query)
     obras = result.scalars().all()
     if not obras:
         return []
@@ -97,9 +103,12 @@ async def listar_obras(
 async def consultar_obra(
     obra_id: int,
     empresa_id: int = Depends(get_empresa_id),
+    usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
+    if usuario.rol == RolUsuario.LECTOR and obra.estado in [EstadoObra.ARCHIVADA, EstadoObra.ENTREGADA, EstadoObra.FINALIZADA]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a obras cerradas")
     return await _construir_obra_out(obra, db)
 
 
@@ -107,10 +116,11 @@ async def consultar_obra(
 async def cambiar_estado_obra(
     obra_id: int,
     datos: ObraEstadoUpdate,
-    admin: Usuario = Depends(require_admin),
+    director: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    obra = await _obtener_obra_de_la_empresa(obra_id, admin.id, db)
+    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     obra.estado = datos.estado
     await db.commit()
     await db.refresh(obra)
@@ -121,7 +131,7 @@ async def cambiar_estado_obra(
 async def actualizar_detalle_obra(
     obra_id: int,
     datos: ObraDetalleUpdate,
-    admin: Usuario = Depends(require_admin),
+    director: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -129,7 +139,8 @@ async def actualizar_detalle_obra(
     fecha de inicio, superficie, progreso visual, texto de estado actual).
     No toca el enum `estado` formal — para eso está /estado.
     """
-    obra = await _obtener_obra_de_la_empresa(obra_id, admin.id, db)
+    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     datos_dict = datos.model_dump(exclude_unset=True)
     for campo, valor in datos_dict.items():
         setattr(obra, campo, valor)

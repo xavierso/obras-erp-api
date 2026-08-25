@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin
+from app.core.deps import require_director
 from app.database import get_db
 from app.models.cita_visita import CitaVisita
 from app.models.perfil_empresa import PerfilEmpresa
@@ -76,7 +76,7 @@ async def registrar_visita_potencial(
     cita_id: int,
     descripcion: str | None = Form(default=None),
     archivos: list[UploadFile] = File(default=[]),
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
@@ -117,7 +117,7 @@ async def registrar_visita_potencial(
 @router.get("", response_model=list[VisitaPotencialOut])
 async def listar_visitas_potenciales(
     cita_id: int,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
@@ -138,7 +138,7 @@ async def listar_visitas_potenciales(
 async def generar_parte_de_trabajo(
     cita_id: int,
     visita_potencial_id: int,
-    admin: Usuario = Depends(require_admin),
+    admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)

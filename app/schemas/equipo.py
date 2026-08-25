@@ -3,15 +3,18 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.models.invitacion import EstadoInvitacion
+from app.models.usuario import RolUsuario
 
 
 class InvitacionCreate(BaseModel):
     email: EmailStr
+    rol: RolUsuario = Field(default=RolUsuario.INSPECTOR)
 
 
 class InvitacionOut(BaseModel):
     id: int
     email: str
+    rol: RolUsuario
     estado: EstadoInvitacion
     created_at: datetime
     expira_at: datetime
@@ -29,6 +32,7 @@ class MiembroEquipoOut(BaseModel):
     id: int
     nombre: str
     email: str
+    rol: RolUsuario
     is_active: bool
     created_at: datetime
 
