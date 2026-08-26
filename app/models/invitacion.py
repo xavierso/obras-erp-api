@@ -26,7 +26,7 @@ class Invitacion(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     admin_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
-    rol: Mapped["RolUsuario"] = mapped_column(SAEnum("RolUsuario", create_type=False, name="rolusuario"), default="inspector", nullable=False)
+    rol: Mapped["RolUsuario"] = mapped_column(SAEnum(RolUsuario, name="rolusuario", create_type=False), default=RolUsuario.INSPECTOR, nullable=False)
     token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     estado: Mapped[EstadoInvitacion] = mapped_column(
         SAEnum(EstadoInvitacion), default=EstadoInvitacion.PENDIENTE, nullable=False

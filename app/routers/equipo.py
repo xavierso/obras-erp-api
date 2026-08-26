@@ -97,27 +97,32 @@ async def ver_equipo(
     director: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
-    result = await db.execute(
-        select(Usuario).where(Usuario.admin_id == empresa_id).order_by(Usuario.created_at.desc())
-    )
-    miembros = result.scalars().all()
-
-    result = await db.execute(
-        select(Invitacion)
-        .where(
-            Invitacion.admin_id == empresa_id,
-            Invitacion.estado == EstadoInvitacion.PENDIENTE,
-            Invitacion.expira_at > datetime.now(timezone.utc),
+    try:
+        empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
+        result = await db.execute(
+            select(Usuario).where(Usuario.admin_id == empresa_id).order_by(Usuario.created_at.desc())
         )
-        .order_by(Invitacion.created_at.desc())
-    )
-    invitaciones = result.scalars().all()
+        miembros = result.scalars().all()
 
-    return ResumenEquipo(
-        miembros=[MiembroEquipoOut.model_validate(m) for m in miembros],
-        invitaciones_pendientes=[InvitacionOut.model_validate(i) for i in invitaciones],
-    )
+        result = await db.execute(
+            select(Invitacion)
+            .where(
+                Invitacion.admin_id == empresa_id,
+                Invitacion.estado == EstadoInvitacion.PENDIENTE,
+                Invitacion.expira_at > datetime.now(timezone.utc),
+            )
+            .order_by(Invitacion.created_at.desc())
+        )
+        invitaciones = result.scalars().all()
+
+        return ResumenEquipo(
+            miembros=[MiembroEquipoOut.model_validate(m) for m in miembros],
+            invitaciones_pendientes=[InvitacionOut.model_validate(i) for i in invitaciones],
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise e
 
 
 @router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)

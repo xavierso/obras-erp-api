@@ -27,17 +27,24 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    usuario_id = decode_access_token(token)
-    if usuario_id is None:
-        raise credentials_exception
+    try:
+        usuario_id = decode_access_token(token)
+        if usuario_id is None:
+            raise credentials_exception
 
-    result = await db.execute(select(Usuario).where(Usuario.id == usuario_id))
-    usuario = result.scalar_one_or_none()
+        result = await db.execute(select(Usuario).where(Usuario.id == usuario_id))
+        usuario = result.scalar_one_or_none()
 
-    if usuario is None or not usuario.is_active:
-        raise credentials_exception
+        if usuario is None or not usuario.is_active:
+            raise credentials_exception
 
-    return usuario
+        return usuario
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise e
 
 
 async def get_empresa_id(usuario: Usuario = Depends(get_current_user)) -> int:
