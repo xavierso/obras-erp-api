@@ -24,15 +24,16 @@ router = APIRouter(prefix="/obras/{obra_id}/informe", tags=["Informes"])
 async def generar_informe(
     obra_id: int,
     visita_id: int | None = None,
+    fecha_inicio: str | None = None,
+    fecha_fin: str | None = None,
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Sin `visita_id`: informe completo con todas las visitas de la obra
     (comportamiento de siempre). Con `visita_id`: mismo formato de
-    informe (portada + cronología), pero limitado a esa única visita —
-    útil para compartir el reporte de una visita puntual sin mandar todo
-    el historial.
+    informe (portada + cronología), pero limitado a esa única visita.
+    Además, permite filtrar por un rango de fechas con `fecha_inicio` y `fecha_fin`.
     """
     result = await db.execute(
         select(Obra).where(Obra.id == obra_id, Obra.usuario_id == admin.id)
@@ -44,6 +45,12 @@ async def generar_informe(
     query = select(Visita).where(Visita.obra_id == obra.id)
     if visita_id is not None:
         query = query.where(Visita.id == visita_id)
+    
+    if fecha_inicio:
+        query = query.where(Visita.fecha >= fecha_inicio)
+    if fecha_fin:
+        query = query.where(Visita.fecha <= fecha_fin)
+        
     query = query.order_by(Visita.fecha.asc())
 
     result = await db.execute(query)
