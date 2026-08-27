@@ -172,3 +172,25 @@ async def actualizar_visita(
     await db.commit()
     await db.refresh(visita_existente, attribute_names=["archivos"])
     return _serializar_visita(visita_existente)
+
+
+@router.delete("/{visita_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_visita(
+    obra_id: int,
+    visita_id: int,
+    usuario: Usuario = Depends(require_inspector_or_higher),
+    empresa_id: int = Depends(get_empresa_id),
+    db: AsyncSession = Depends(get_db)
+):
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
+    
+    result = await db.execute(
+        select(Visita).where(Visita.id == visita_id, Visita.obra_id == obra.id)
+    )
+    visita = result.scalar_one_or_none()
+    if not visita:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Visita no encontrada")
+        
+    await db.delete(visita)
+    await db.commit()
+    return None

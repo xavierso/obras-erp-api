@@ -57,7 +57,9 @@ class Obra(Base):
     documentos: Mapped[list["Documento"]] = relationship(
         back_populates="obra", cascade="all, delete-orphan"
     )
-    citas: Mapped[list["CitaVisita"]] = relationship(back_populates="obra")
+    citas: Mapped[list["CitaVisita"]] = relationship(
+        back_populates="obra", cascade="all, delete-orphan"
+    )
     tareas: Mapped[list["Tarea"]] = relationship(
         back_populates="obra", cascade="all, delete-orphan"
     )

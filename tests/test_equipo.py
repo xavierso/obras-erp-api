@@ -124,7 +124,7 @@ async def test_dar_de_baja_inspector(auth_client: AsyncClient, db_session: Async
 async def test_dar_de_baja_inspector_not_found(auth_client: AsyncClient):
     response = await auth_client.delete("/equipo/9999")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Inspector no encontrado"
+    assert response.json()["detail"] == "Miembro no encontrado"
 
 
 async def test_cancelar_invitacion(auth_client: AsyncClient, db_session: AsyncSession, test_user: Usuario):

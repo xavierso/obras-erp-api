@@ -283,6 +283,9 @@ async def eliminar_incidencia(
     incidencia = result.scalar_one_or_none()
     if not incidencia:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
+        
+    if incidencia.visita_id is not None:
+        raise HTTPException(status_code=400, detail="No se puede eliminar una incidencia reportada durante una visita. Cáncelala o resuélvela para mantener la trazabilidad.")
     
     await db.delete(incidencia)
     await db.commit()

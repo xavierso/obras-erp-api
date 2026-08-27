@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_empresa_id, require_director
+from app.core.deps import get_current_user, get_empresa_id, require_director, require_admin
 from app.database import get_db
 from app.models.obra import EstadoObra, Obra
 from app.models.usuario import RolUsuario, Usuario
@@ -147,3 +147,16 @@ async def actualizar_detalle_obra(
     await db.commit()
     await db.refresh(obra)
     return await _construir_obra_out(obra, db)
+
+
+@router.delete("/{obra_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_obra(
+    obra_id: int,
+    admin: Usuario = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    empresa_id = admin.id
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
+    await db.delete(obra)
+    await db.commit()
+    return None

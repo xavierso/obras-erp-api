@@ -292,5 +292,8 @@ async def eliminar_tarea(
     if not tarea:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
         
+    if tarea.visita_id is not None:
+        raise HTTPException(status_code=400, detail="No se puede eliminar una tarea generada durante una visita. Cáncelala o complétala para mantener la trazabilidad.")
+        
     await db.delete(tarea)
     await db.commit()

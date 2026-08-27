@@ -10,7 +10,7 @@ from app.core.deps import require_director
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, RolUsuario
 from app.schemas.documento import DocumentoOut
 from app.services.storage_service import ArchivoInvalido, guardar_archivo, url_publica
 
@@ -18,8 +18,9 @@ router = APIRouter(prefix="/obras/{obra_id}/documentos", tags=["Documentos"])
 
 
 async def _obtener_obra_de_la_empresa(obra_id: int, admin: Usuario, db: AsyncSession) -> Obra:
+    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     result = await db.execute(
-        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == admin.id)
+        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:
@@ -80,3 +81,23 @@ async def listar_documentos(
         query = query.where(Documento.categoria == categoria)
     result = await db.execute(query.order_by(Documento.created_at.desc()))
     return [_serializar_documento(d) for d in result.scalars().all()]
+
+
+@router.delete("/{documento_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_documento(
+    obra_id: int,
+    documento_id: int,
+    admin: Usuario = Depends(require_director),
+    db: AsyncSession = Depends(get_db)
+):
+    obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)
+    result = await db.execute(
+        select(Documento).where(Documento.id == documento_id, Documento.obra_id == obra.id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
+        
+    await db.delete(doc)
+    await db.commit()
+    return None
