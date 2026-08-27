@@ -11,6 +11,8 @@ from app.models.perfil_empresa import PerfilEmpresa
 from app.models.cita_visita import CitaVisita, EstadoCita
 from app.models.visita_potencial import VisitaPotencial, VisitaPotencialArchivo
 from app.models.invitacion import Invitacion, EstadoInvitacion
+from app.models.tarea import Tarea, HistorialTarea, EstadoTarea
+from app.models.incidencia import Incidencia, HistorialIncidencia, EstadoIncidencia, IncidenciaArchivo
 
 __all__ = [
     "Usuario",
@@ -29,4 +31,11 @@ __all__ = [
     "VisitaPotencialArchivo",
     "Invitacion",
     "EstadoInvitacion",
+    "Tarea",
+    "HistorialTarea",
+    "EstadoTarea",
+    "Incidencia",
+    "HistorialIncidencia",
+    "EstadoIncidencia",
+    "IncidenciaArchivo",
 ]

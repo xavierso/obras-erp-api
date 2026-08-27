@@ -38,6 +38,12 @@ class Visita(Base):
     archivos: Mapped[list["VisitaArchivo"]] = relationship(
         back_populates="visita", cascade="all, delete-orphan"
     )
+    tareas: Mapped[list["Tarea"]] = relationship(
+        back_populates="visita", cascade="all, delete-orphan"
+    )
+    incidencias: Mapped[list["Incidencia"]] = relationship(
+        back_populates="visita", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Visita id={self.id} obra_id={self.obra_id} fecha={self.fecha}>"

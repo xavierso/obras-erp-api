@@ -26,6 +26,8 @@ from app.routers import (
     visitas,
     visitas_globales,
     visitas_potenciales,
+    tareas,
+    incidencias,
 )
 from app.services.scheduler_service import detener_scheduler, iniciar_scheduler
 
@@ -76,6 +78,10 @@ app.include_router(citas.router)
 app.include_router(visitas_potenciales.router)
 app.include_router(dashboard.router)
 app.include_router(equipo.router)
+app.include_router(tareas.router)
+app.include_router(tareas.obras_router)
+app.include_router(incidencias.router)
+app.include_router(incidencias.obras_router)
 
 # Sirve los archivos subidos (fotos, documentos, logos) en /files/...
 Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)

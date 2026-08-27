@@ -58,6 +58,10 @@ class Obra(Base):
         back_populates="obra", cascade="all, delete-orphan"
     )
     citas: Mapped[list["CitaVisita"]] = relationship(back_populates="obra")
+    tareas: Mapped[list["Tarea"]] = relationship(
+        back_populates="obra", cascade="all, delete-orphan"
+    )
+    incidencias: Mapped[list["Incidencia"]] = relationship(back_populates="obra", cascade="all, delete-orphan")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

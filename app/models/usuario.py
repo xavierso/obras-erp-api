@@ -53,6 +53,25 @@ class Usuario(Base):
     perfil_empresa: Mapped["PerfilEmpresa | None"] = relationship(
         back_populates="usuario", uselist=False
     )
+    tareas_creadas: Mapped[list["Tarea"]] = relationship(
+        foreign_keys="[Tarea.creador_id]", back_populates="creador", cascade="all, delete-orphan"
+    )
+    tareas_asignadas: Mapped[list["Tarea"]] = relationship(
+        foreign_keys="[Tarea.responsable_id]", back_populates="responsable"
+    )
+    historial_tareas: Mapped[list["HistorialTarea"]] = relationship(
+        back_populates="usuario", cascade="all, delete-orphan"
+    )
+    
+    incidencias_creadas: Mapped[list["Incidencia"]] = relationship(
+        foreign_keys="[Incidencia.creador_id]", back_populates="creador", cascade="all, delete-orphan"
+    )
+    incidencias_asignadas: Mapped[list["Incidencia"]] = relationship(
+        foreign_keys="[Incidencia.responsable_id]", back_populates="responsable"
+    )
+    historial_incidencias: Mapped[list["HistorialIncidencia"]] = relationship(
+        back_populates="usuario", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Usuario id={self.id} email={self.email} rol={self.rol}>"
