@@ -13,6 +13,7 @@ from app.models.visita_potencial import VisitaPotencial, VisitaPotencialArchivo
 from app.models.invitacion import Invitacion, EstadoInvitacion
 from app.models.tarea import Tarea, HistorialTarea, EstadoTarea
 from app.models.incidencia import Incidencia, HistorialIncidencia, EstadoIncidencia, IncidenciaArchivo
+from app.models.evento_calendario import EventoCalendario, TipoEventoCalendario, EstadoEventoCalendario
 
 __all__ = [
     "Usuario",
@@ -38,4 +39,7 @@ __all__ = [
     "HistorialIncidencia",
     "EstadoIncidencia",
     "IncidenciaArchivo",
+    "EventoCalendario",
+    "TipoEventoCalendario",
+    "EstadoEventoCalendario",
 ]
