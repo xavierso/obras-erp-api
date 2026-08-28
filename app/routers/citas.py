@@ -12,7 +12,7 @@ from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.cita_visita import CitaVisita, EstadoCita
 from app.models.obra import Obra
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, RolUsuario
 from app.schemas.cita_visita import (
     CitaVisitaCreate,
     CitaVisitaEstadoUpdate,

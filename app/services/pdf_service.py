@@ -1,31 +1,13 @@
-"""
-Generación de informes PDF, migrado desde bot_erp_obras/services/pdf_service.py.
-
-Conserva la identidad visual del bot:
-- Portada a sangre completa con una foto real de la obra (elegida al azar
-  entre las visitas), degradado oscuro inferior, nombre de la empresa
-  superpuesto en blanco espaciado, y línea de acento en el color de marca.
-  Si la obra no tiene fotos, se genera un plano arquitectónico abstracto
-  de respaldo.
-- Cronología con cada visita numerada, en dos columnas: observaciones a la
-  izquierda, cuadrícula de fotos a la derecha con pie de foto, recortadas
-  a tamaño uniforme.
-
-Diferencia respecto al bot: las imágenes ya no se descargan de Telegram al
-vuelo, se leen directamente del almacenamiento local (storage_service).
-"""
 import io
-import random
 from datetime import datetime
 from pathlib import Path
 
-from PIL import Image as PILImage, ImageDraw
+from PIL import Image as PILImage
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas as pdfcanvas
 from reportlab.platypus import (
     Paragraph,
@@ -43,20 +25,17 @@ from app.models.visita import TipoArchivoVisita, Visita
 
 STORAGE_ROOT = Path(settings.STORAGE_DIR)
 PAGE_W, PAGE_H = A4
-DPI_PORTADA = 150
-COLOR_MARCA_DEFECTO = "#1E3A5F"
 
 FOTOS_POR_VISITA_EN_GRID = 4
-LADO_MINIATURA_MM = 28
+LADO_MINIATURA_MM = 35
 
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
+WATERMARK_PATH = ASSETS_DIR / "watermark_body_light.png"
+ISOMETRIC_BG_PATH = ASSETS_DIR / "isometric_bg.jpg"
 
-# --------------------------------------------------------------------------
-# Utilidades de color
-# --------------------------------------------------------------------------
 def _hex_a_rgb(color_hex: str) -> tuple[int, int, int]:
     color_hex = color_hex.lstrip("#")
-    return tuple(int(color_hex[i : i + 2], 16) for i in (0, 2, 4))  # noqa: E203
-
+    return tuple(int(color_hex[i : i + 2], 16) for i in (0, 2, 4))
 
 def _hex_a_reportlab_color(color_hex: str) -> colors.Color:
     r, g, b = _hex_a_rgb(color_hex)
@@ -66,139 +45,91 @@ def _hex_a_reportlab_color(color_hex: str) -> colors.Color:
 # --------------------------------------------------------------------------
 # Portada
 # --------------------------------------------------------------------------
-def _elegir_foto_random(visitas: list[Visita]) -> Path | None:
-    candidatas = []
-    for visita in visitas:
-        for archivo in visita.archivos:
-            if archivo.tipo == TipoArchivoVisita.FOTO:
-                ruta = STORAGE_ROOT / archivo.ruta_archivo
-                if ruta.exists():
-                    candidatas.append(ruta)
-    return random.choice(candidatas) if candidatas else None
-
-
-def _generar_plano_abstracto(ancho_px: int, alto_px: int, color_hex: str) -> PILImage.Image:
-    """
-    Respaldo cuando la obra aún no tiene fotos: un plano arquitectónico
-    abstracto generado por código (líneas finas estilo blueprint).
-    """
-    fondo = (13, 22, 35)  # azul marino oscuro
-    lineas = (90, 130, 160)  # azul claro, estilo plano
-
-    img = PILImage.new("RGB", (ancho_px, alto_px), fondo)
-    draw = ImageDraw.Draw(img)
-
-    paso = max(ancho_px // 18, 30)
-    for x in range(0, ancho_px, paso):
-        draw.line([(x, 0), (x, alto_px)], fill=lineas, width=1)
-    for y in range(0, alto_px, paso):
-        draw.line([(0, y), (ancho_px, y)], fill=lineas, width=1)
-
-    # Un par de "muros" gruesos para sugerir planta arquitectónica.
-    accent = _hex_a_rgb(color_hex)
-    margen = int(ancho_px * 0.12)
-    draw.rectangle(
-        [margen, int(alto_px * 0.25), ancho_px - margen, int(alto_px * 0.75)],
-        outline=accent,
-        width=4,
-    )
-    draw.line(
-        [(ancho_px // 2, int(alto_px * 0.25)), (ancho_px // 2, int(alto_px * 0.75))],
-        fill=accent,
-        width=3,
-    )
-    return img
-
-
-def _preparar_imagen_portada(ruta_foto: Path | None, color_hex: str) -> PILImage.Image:
-    ancho_px = int(PAGE_W / 72 * DPI_PORTADA)
-    alto_px = int(PAGE_H / 72 * DPI_PORTADA)
-
-    if ruta_foto is not None:
-        base = PILImage.open(ruta_foto).convert("RGB")
-        # "cover fit": recorta al centro manteniendo proporción del lienzo.
-        ratio_destino = ancho_px / alto_px
-        ratio_origen = base.width / base.height
-        if ratio_origen > ratio_destino:
-            nuevo_alto = alto_px
-            nuevo_ancho = int(ratio_origen * nuevo_alto)
-        else:
-            nuevo_ancho = ancho_px
-            nuevo_alto = int(nuevo_ancho / ratio_origen)
-        base = base.resize((nuevo_ancho, nuevo_alto))
-        x0 = (nuevo_ancho - ancho_px) // 2
-        y0 = (nuevo_alto - alto_px) // 2
-        base = base.crop((x0, y0, x0 + ancho_px, y0 + alto_px))
-    else:
-        base = _generar_plano_abstracto(ancho_px, alto_px, color_hex)
-
-    base = base.convert("RGBA")
-
-    # Degradado oscuro en el tercio inferior, para que el texto blanco
-    # se lea bien encima de cualquier foto.
-    degradado = PILImage.new("RGBA", base.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(degradado)
-    inicio_y = int(alto_px * 0.55)
-    for y in range(inicio_y, alto_px):
-        progreso = (y - inicio_y) / (alto_px - inicio_y)
-        alpha = int(210 * progreso)
-        draw.line([(0, y), (ancho_px, y)], fill=(0, 0, 0, alpha))
-
-    resultado = PILImage.alpha_composite(base, degradado)
-    return resultado.convert("RGB")
-
-
-def _dibujar_texto_espaciado(
-    c: pdfcanvas.Canvas,
-    texto: str,
-    centro_x: float,
-    y: float,
-    font_name: str,
-    font_size: float,
-    espaciado: float,
-    color=colors.white,
-) -> None:
-    """Dibuja texto centrado con espaciado extra entre letras (tracking)."""
-    c.setFont(font_name, font_size)
-    ancho_total = sum(c.stringWidth(ch, font_name, font_size) + espaciado for ch in texto)
-    ancho_total -= espaciado  # sin espaciado extra tras la última letra
-    x = centro_x - ancho_total / 2
-    c.setFillColor(color)
-    for ch in texto:
-        c.drawString(x, y, ch)
-        x += c.stringWidth(ch, font_name, font_size) + espaciado
-
-
-def _crear_portada_pdf(obra: Obra, nombre_empresa: str, color_hex: str, ruta_foto: Path | None) -> bytes:
+def _crear_portada_pdf(obra: Obra, nombre_empresa: str, num_visitas: int, logo_ruta: str | None = None) -> bytes:
     buffer = io.BytesIO()
     c = pdfcanvas.Canvas(buffer, pagesize=A4)
+    c.saveState()
 
-    imagen_fondo = _preparar_imagen_portada(ruta_foto, color_hex)
-    c.drawImage(ImageReader(imagen_fondo), 0, 0, width=PAGE_W, height=PAGE_H)
+    # Center faded image
+    if WATERMARK_PATH.exists():
+        c.drawImage(str(WATERMARK_PATH), PAGE_W*0.15, PAGE_H*0.25, width=PAGE_W*0.7, height=PAGE_H*0.5, mask='auto', preserveAspectRatio=True)
 
-    color_marca = _hex_a_reportlab_color(color_hex)
-    margen = 20 * mm
+    # Top Card
+    p_empresa = ParagraphStyle('empresa', fontName='Helvetica-Bold', fontSize=14, alignment=TA_RIGHT)
+    company_name = Paragraph(nombre_empresa.upper(), p_empresa)
+    
+    logo = ''
+    if logo_ruta:
+        ruta_completa = STORAGE_ROOT / logo_ruta
+        if ruta_completa.exists():
+            try:
+                logo = RLImage(str(ruta_completa), width=40*mm, height=15*mm, kind='proportional')
+            except:
+                pass
 
-    # Línea de acento en el color de marca.
-    c.setFillColor(color_marca)
-    c.rect(margen, 48 * mm, PAGE_W - 2 * margen, 1.2 * mm, fill=1, stroke=0)
+    top_card = Table([[logo, company_name]], colWidths=[PAGE_W*0.4, PAGE_W*0.4], rowHeights=[20*mm])
+    top_card.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 5*mm),
+        ('RIGHTPADDING', (0,0), (-1,-1), 5*mm),
+    ]))
+    top_card.wrapOn(c, PAGE_W, PAGE_H)
+    top_card.drawOn(c, PAGE_W*0.1, PAGE_H - 30*mm)
 
-    # Nombre de la empresa, blanco, espaciado.
-    _dibujar_texto_espaciado(
-        c, nombre_empresa.upper(), PAGE_W / 2, 56 * mm, "Helvetica-Bold", 20, 3.2
-    )
+    # Title
+    c.setFont('Helvetica-Bold', 40)
+    c.drawString(20*mm, 100*mm, 'INFORME DE')
+    c.drawString(20*mm, 85*mm, 'VISITA DE OBRA')
+    c.setFont('Helvetica', 14)
+    c.drawString(20*mm, 75*mm, 'SEGUIMIENTO Y CONTROL DE OBRA')
 
-    # Datos de la obra.
-    c.setFillColor(colors.white)
-    c.setFont("Helvetica-Bold", 15)
-    c.drawCentredString(PAGE_W / 2, 38 * mm, obra.nombre)
+    # Data Table
+    style_label = '<font size=7 color=grey>'
+    style_val = '<font size=9><b>'
+    p_style = ParagraphStyle('t', fontName='Helvetica', leading=12)
+    p_center = ParagraphStyle('c', fontName='Helvetica', alignment=TA_CENTER, leading=12)
 
-    c.setFont("Helvetica", 10)
-    subtitulo = obra.codigo
-    if obra.cliente:
-        subtitulo += f"  ·  {obra.cliente}"
-    c.drawCentredString(PAGE_W / 2, 31 * mm, subtitulo)
+    fecha_emision = datetime.now().strftime('%d/%m/%Y')
+    cliente = obra.cliente or "Sin especificar"
+    
+    def basic_cell(label, val):
+        return Paragraph(f'{style_label}{label}</font><br/>{style_val}{val}</b></font>', p_style)
 
+    data = [
+        [
+            basic_cell('NOMBRE DE LA OBRA', (obra.nombre or "")[:35]),
+            basic_cell('FECHA DE EMISIÓN', fecha_emision),
+            Paragraph(f'{style_label}CÓDIGO DE OBRA</font><br/>{style_val}{obra.codigo or ""}</b></font>', p_center)
+        ],
+        [
+            basic_cell('DIRECCIÓN', (obra.direccion or "")[:40]),
+            basic_cell('CLIENTE', cliente[:35]),
+            Paragraph(f'{style_label}VISITAS REGISTRADAS</font><br/><font size=12><b>{num_visitas}</b></font>', p_center)
+        ]
+    ]
+
+    total_w = PAGE_W - 40*mm
+    t = Table(data, colWidths=[total_w*0.4, total_w*0.35, total_w*0.25], rowHeights=[15*mm, 15*mm])
+    t.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (-1,-1), 5*mm),
+        ('RIGHTPADDING', (0,0), (-1,-1), 5*mm),
+        ('ALIGN', (2,0), (2,1), 'CENTER'),
+    ]))
+
+    t.wrapOn(c, PAGE_W, PAGE_H)
+    t.drawOn(c, 20*mm, 30*mm)
+
+    # Footer
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y a las %H:%M')
+    c.setFont('Helvetica', 8)
+    c.drawCentredString(PAGE_W/2, 15*mm, f'Informe generado el {fecha_generacion}')
+
+    c.restoreState()
     c.showPage()
     c.save()
     return buffer.getvalue()
@@ -207,8 +138,7 @@ def _crear_portada_pdf(obra: Obra, nombre_empresa: str, color_hex: str, ruta_fot
 # --------------------------------------------------------------------------
 # Cronología (cuerpo del informe)
 # --------------------------------------------------------------------------
-def _miniatura_uniforme(ruta_archivo: Path, lado_px: int = 300) -> RLImage:
-    """Recorta una foto a un cuadrado uniforme, para que la cuadrícula quede alineada."""
+def _miniatura_uniforme(ruta_archivo: Path, lado_px: int = 400) -> RLImage:
     img = PILImage.open(ruta_archivo).convert("RGB")
     lado_menor = min(img.width, img.height)
     x0 = (img.width - lado_menor) // 2
@@ -221,7 +151,6 @@ def _miniatura_uniforme(ruta_archivo: Path, lado_px: int = 300) -> RLImage:
     lado_pt = LADO_MINIATURA_MM * mm
     return RLImage(buf, width=lado_pt, height=lado_pt)
 
-
 def _grid_fotos_visita(visita: Visita) -> Table | Paragraph:
     fotos = [
         STORAGE_ROOT / a.ruta_archivo
@@ -233,27 +162,43 @@ def _grid_fotos_visita(visita: Visita) -> Table | Paragraph:
     if not fotos and not videos:
         return Paragraph("Sin fotos adjuntas.", ParagraphStyle("sinfotos", fontSize=8, textColor=colors.grey))
 
+    # Construir celdas con la foto y el subtitulo "Foto X. \n Fecha"
     celdas = []
     fila = []
-    for foto in fotos[:FOTOS_POR_VISITA_EN_GRID]:
-        fila.append(_miniatura_uniforme(foto))
+    fecha_str = visita.fecha.strftime("%d/%m/%Y")
+    
+    style_caption = ParagraphStyle('cap', fontName='Helvetica-Bold', fontSize=7, alignment=TA_CENTER, spaceBefore=4)
+    style_date = ParagraphStyle('date', fontName='Helvetica', fontSize=6, alignment=TA_CENTER, textColor=colors.grey)
+    
+    for idx, foto in enumerate(fotos[:FOTOS_POR_VISITA_EN_GRID]):
+        img_rl = _miniatura_uniforme(foto)
+        p_caption = Paragraph(f"Foto {idx+1}.", style_caption)
+        p_date = Paragraph(fecha_str, style_date)
+        
+        cell_table = Table([[img_rl], [p_caption], [p_date]], colWidths=[LADO_MINIATURA_MM * mm])
+        cell_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+        ]))
+        
+        fila.append(cell_table)
         if len(fila) == 2:
             celdas.append(fila)
             fila = []
+            
     if fila:
         celdas.append(fila)
 
     tabla = Table(celdas, hAlign="LEFT")
-    tabla.setStyle(
-        TableStyle(
-            [
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-                ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ]
-        )
-    )
+    tabla.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+    ]))
 
     if videos:
         nota = Paragraph(
@@ -264,83 +209,112 @@ def _grid_fotos_visita(visita: Visita) -> Table | Paragraph:
 
     return tabla
 
-
-def _construir_cuerpo_pdf(obra: Obra, visitas: list[Visita], color_hex: str) -> bytes:
+def _construir_cuerpo_pdf(obra: Obra, visitas: list[Visita]) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        leftMargin=20 * mm,
-        rightMargin=20 * mm,
-        topMargin=18 * mm,
-        bottomMargin=16 * mm,
+        leftMargin=15 * mm,
+        rightMargin=15 * mm,
+        topMargin=25 * mm,
+        bottomMargin=25 * mm,
     )
 
-    color_marca = _hex_a_reportlab_color(color_hex)
-    estilo_titulo = ParagraphStyle(
-        "titulo", fontName="Helvetica-Bold", fontSize=14, textColor=color_marca, spaceAfter=4
-    )
-    estilo_numero_visita = ParagraphStyle(
-        "numvisita", fontName="Helvetica-Bold", fontSize=11, textColor=colors.black, spaceBefore=10
-    )
-    estilo_fecha = ParagraphStyle("fecha", fontName="Helvetica", fontSize=8, textColor=colors.grey)
-    estilo_obs = ParagraphStyle(
-        "obs", fontName="Helvetica", fontSize=9, textColor=colors.black, alignment=TA_LEFT, leading=12
-    )
-
-    elementos = [
-        Paragraph("Cronología de visitas", estilo_titulo),
-        Spacer(1, 4),
-    ]
-
-    if not visitas:
-        elementos.append(Paragraph("Todavía no hay visitas registradas en esta obra.", estilo_obs))
-
-    for i, visita in enumerate(visitas, start=1):
-        elementos.append(Paragraph(f"Visita {i}", estilo_numero_visita))
-        elementos.append(Paragraph(visita.fecha.strftime("%d/%m/%Y %H:%M"), estilo_fecha))
-
-        texto_obs = visita.descripcion or "Sin observaciones registradas."
-        columna_izquierda = Paragraph(texto_obs, estilo_obs)
-        columna_derecha = _grid_fotos_visita(visita)
-
-        fila = Table(
-            [[columna_izquierda, columna_derecha]],
-            colWidths=[(PAGE_W - 40 * mm) * 0.5, (PAGE_W - 40 * mm) * 0.5],
-        )
-        fila.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LEFTPADDING", (0, 0), (0, 0), 0),
-                    ("RIGHTPADDING", (0, 0), (0, 0), 8),
-                ]
-            )
-        )
-        elementos.append(fila)
-
-        linea_separadora = Table([[""]], colWidths=[PAGE_W - 40 * mm], rowHeights=[0.5])
-        linea_separadora.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.lightgrey)]))
-        elementos.append(Spacer(1, 6))
-        elementos.append(linea_separadora)
-        elementos.append(Spacer(1, 4))
-
-    def _pie_de_pagina(canvas_obj, doc_obj):
+    def draw_header_footer(canvas_obj, doc_obj):
         canvas_obj.saveState()
-        canvas_obj.setFont("Helvetica", 8)
-        canvas_obj.setFillColor(colors.grey)
-        canvas_obj.drawRightString(
-            PAGE_W - 20 * mm, 10 * mm, f"{obra.codigo} · Página {doc_obj.page}"
-        )
+        
+        # Marca de agua
+        if WATERMARK_PATH.exists():
+            canvas_obj.drawImage(str(WATERMARK_PATH), PAGE_W*0.1, 0, width=PAGE_W*0.9, height=PAGE_H*0.8, mask='auto', preserveAspectRatio=True, anchor='s')
+        
+        # Cabecera
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.drawString(15*mm, PAGE_H - 15*mm, 'Integración de Servicios de Construcción y Rehabilitación')
+        canvas_obj.drawRightString(PAGE_W - 15*mm, PAGE_H - 15*mm, (obra.direccion or obra.nombre).upper())
+        canvas_obj.setLineWidth(1)
+        canvas_obj.line(15*mm, PAGE_H - 17*mm, PAGE_W - 15*mm, PAGE_H - 17*mm)
+        
+        # Pie
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(15*mm, 20*mm, PAGE_W - 15*mm, 20*mm)
+        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.drawString(15*mm, 15*mm, f'Informe {obra.codigo}')
+        fecha_gen = datetime.now().strftime('%d/%m/%Y a las %H:%M')
+        canvas_obj.drawCentredString(PAGE_W/2, 15*mm, f'Informe generado el {fecha_gen}')
+        canvas_obj.drawRightString(PAGE_W - 15*mm, 15*mm, f'Página {doc_obj.page}')
+        
+        # Linea vertical central
+        canvas_obj.setStrokeColor(colors.lightgrey)
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(PAGE_W*0.43, 25*mm, PAGE_W*0.43, PAGE_H - 25*mm)
+        
         canvas_obj.restoreState()
 
-    doc.build(elementos, onFirstPage=_pie_de_pagina, onLaterPages=_pie_de_pagina)
+    left_style = ParagraphStyle('Left', fontName='Helvetica', fontSize=9, leading=12)
+    right_title = ParagraphStyle('RightTitle', fontName='Helvetica-Bold', fontSize=10, spaceAfter=10)
+    box_style = ParagraphStyle('Box', fontName='Helvetica-Bold', fontSize=12, textColor=colors.white, alignment=TA_CENTER)
+    
+    elementos = []
+    
+    if not visitas:
+        elementos.append(Paragraph("Todavía no hay visitas registradas en esta obra.", left_style))
+    
+    for i, visita in enumerate(visitas, start=1):
+        left_content = []
+        
+        # Numero de visita en recuadro negro
+        num_str = f"{i:02d}"
+        t_box = Table([ [Paragraph(num_str, box_style)] ], colWidths=[12*mm], rowHeights=[12*mm])
+        t_box.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (0,0), colors.black),
+            ('VALIGN', (0,0), (0,0), 'MIDDLE'),
+            ('ALIGN', (0,0), (0,0), 'CENTER'),
+        ]))
+        left_content.append(t_box)
+        left_content.append(Spacer(1, 10))
+        
+        left_content.append(Paragraph(f'<b>VISITA {num_str}</b>', left_style))
+        left_content.append(Spacer(1, 5))
+        left_content.append(Paragraph(f'<b>{visita.fecha.strftime("%d/%m/%Y")}</b>', left_style))
+        left_content.append(Spacer(1, 10))
+        
+        autor = getattr(visita, "usuario", None)
+        autor_nombre = autor.nombre_completo if autor else "Desconocido"
+        left_content.append(Paragraph(f'<font color="grey">Registrado por: {autor_nombre}</font>', left_style))
+        left_content.append(Spacer(1, 10))
+        
+        texto_obs = visita.descripcion or "Sin observaciones registradas."
+        left_content.append(Paragraph(texto_obs, left_style))
+        
+        right_content = []
+        right_content.append(Paragraph('REPORTAJE FOTOGRÁFICO', right_title))
+        right_content.append(_grid_fotos_visita(visita))
+        
+        col_w_left = PAGE_W*0.43 - 15*mm
+        col_w_right = PAGE_W*0.57 - 15*mm
+        
+        main_table = Table([[left_content, right_content]], colWidths=[col_w_left, col_w_right])
+        main_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (0,0), 8*mm),
+            ('LEFTPADDING', (1,0), (1,0), 8*mm),
+        ]))
+        
+        elementos.append(main_table)
+        elementos.append(Spacer(1, 15*mm))
+        
+        # Linea separadora horizontal
+        line_separator = Table([['']], colWidths=[PAGE_W - 30*mm])
+        line_separator.setStyle(TableStyle([('LINEBELOW', (0,0), (-1,-1), 0.5, colors.lightgrey)]))
+        elementos.append(line_separator)
+        elementos.append(Spacer(1, 10*mm))
+
+    doc.build(elementos, onFirstPage=draw_header_footer, onLaterPages=draw_header_footer)
     return buffer.getvalue()
 
 
-# --------------------------------------------------------------------------
-# Combinar portada + cuerpo, y función pública
-# --------------------------------------------------------------------------
 def _combinar_pdfs(portada_bytes: bytes, cuerpo_bytes: bytes) -> bytes:
     writer = PdfWriter()
     for lector_bytes in (portada_bytes, cuerpo_bytes):
@@ -352,30 +326,21 @@ def _combinar_pdfs(portada_bytes: bytes, cuerpo_bytes: bytes) -> bytes:
     writer.write(salida)
     return salida.getvalue()
 
-
 def generar_informe_pdf(
     obra: Obra,
     visitas: list[Visita],
     nombre_empresa: str | None,
     color_principal: str | None,
+    logo_ruta: str | None = None,
 ) -> bytes:
-    """Función pública: arma el informe completo (portada + cronología)."""
     nombre_empresa = nombre_empresa or "Mi Empresa"
-    color_hex = color_principal or COLOR_MARCA_DEFECTO
-
-    ruta_foto = _elegir_foto_random(visitas)
-    portada = _crear_portada_pdf(obra, nombre_empresa, color_hex, ruta_foto)
-    cuerpo = _construir_cuerpo_pdf(obra, visitas, color_hex)
+    portada = _crear_portada_pdf(obra, nombre_empresa, len(visitas), logo_ruta)
+    cuerpo = _construir_cuerpo_pdf(obra, visitas)
     return _combinar_pdfs(portada, cuerpo)
 
 
-# --------------------------------------------------------------------------
-# Parte de trabajo (visita potencial, una sola página)
-# --------------------------------------------------------------------------
 def _espaciar_texto(texto: str, separador: str = "\u2009\u2009") -> str:
-    """Mismo efecto de tracking que en la portada, pero como texto de Paragraph."""
     return separador.join(list(texto))
-
 
 def generar_parte_trabajo_pdf(
     cita,
@@ -383,17 +348,8 @@ def generar_parte_trabajo_pdf(
     nombre_empresa: str | None,
     color_principal: str | None,
 ) -> bytes:
-    """
-    Genera el "parte de trabajo": documento de una sola página para una
-    visita potencial (sin obra formal todavía), con la misma línea visual
-    que el informe completo pero condensada.
-
-    `cita` es una CitaVisita y `visita_potencial` una VisitaPotencial;
-    no se importan sus tipos aquí para evitar un ciclo de imports —
-    basta con que tengan los atributos usados abajo (duck typing).
-    """
     nombre_empresa = nombre_empresa or "Mi Empresa"
-    color_hex = color_principal or COLOR_MARCA_DEFECTO
+    color_hex = color_principal or "#1E3A5F"
     color_marca = _hex_a_reportlab_color(color_hex)
 
     buffer = io.BytesIO()

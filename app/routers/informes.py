@@ -74,6 +74,7 @@ async def generar_informe(
         visitas=visitas,
         nombre_empresa=perfil.nombre_empresa if perfil else None,
         color_principal=perfil.color_principal if perfil else None,
+        logo_ruta=perfil.logo_ruta if perfil else None
     )
 
     if visita_id is not None:
