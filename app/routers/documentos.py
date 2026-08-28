@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_current_user
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
@@ -72,10 +72,10 @@ async def subir_documento(
 async def listar_documentos(
     obra_id: int,
     categoria: CategoriaDocumento | None = None,
-    admin: Usuario = Depends(require_director),
+    usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)
+    obra = await _obtener_obra_de_la_empresa(obra_id, usuario, db)
     query = select(Documento).where(Documento.obra_id == obra.id)
     if categoria is not None:
         query = query.where(Documento.categoria == categoria)

@@ -6,7 +6,7 @@ from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_empresa_id
 from app.models.usuario import Usuario, RolUsuario
 from app.models.obra import Obra
 from app.models.visita import Visita
@@ -25,24 +25,22 @@ async def obtener_eventos_calendario(
     fecha_inicio: Optional[date] = None,
     fecha_fin: Optional[date] = None,
     tipos: Optional[List[str]] = Query(None),
-    usuario_actual: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Motor Temporal: recupera todos los eventos relevantes para el calendario.
-    Si obra_id es nulo, devuelve los de todas las obras (a las que tenga acceso).
+    Filtra las obras accesibles según la empresa del usuario.
+    Si obra_id es nulo, devuelve los de todas las obras de la empresa.
     Si responsable_id está presente, filtra por usuario (Mi Agenda).
     """
     eventos: List[EventoCalendarioOut] = []
 
-    # Permisos
-    obras_accesibles = None
-    if usuario_actual.rol not in (RolUsuario.ADMIN, RolUsuario.DIRECTOR):
-        # Lector o Técnico solo ven sus obras
-        res = await db.execute(select(Obra.id).where(Obra.usuarios.any(id=usuario_actual.id)))
-        obras_accesibles = [r[0] for r in res.all()]
-        if not obras_accesibles:
-            return []
+    # Permisos: El usuario puede ver las obras de su empresa.
+    res = await db.execute(select(Obra.id).where(Obra.usuario_id == empresa_id))
+    obras_accesibles = [r[0] for r in res.all()]
+    if not obras_accesibles:
+        return []
     
     # 1. TAREAS
     if not tipos or "tarea" in tipos:

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.cita_visita import CitaVisita, EstadoCita
 from app.models.obra import Obra
@@ -24,9 +24,9 @@ from app.services.cita_service import calcular_momento_recordatorio
 router = APIRouter(prefix="/citas", tags=["Citas y Recordatorios"])
 
 
-async def _obtener_cita_de_la_empresa(cita_id: int, admin: Usuario, db: AsyncSession) -> CitaVisita:
+async def _obtener_cita_de_la_empresa(cita_id: int, empresa_id: int, db: AsyncSession) -> CitaVisita:
     result = await db.execute(
-        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.usuario_id == admin.id)
+        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.usuario_id == empresa_id)
     )
     cita = result.scalar_one_or_none()
     if cita is None:
@@ -40,9 +40,10 @@ async def crear_cita(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
+    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     if datos.obra_id is not None:
         result = await db.execute(
-            select(Obra).where(Obra.id == datos.obra_id, Obra.usuario_id == admin.id)
+            select(Obra).where(Obra.id == datos.obra_id, Obra.usuario_id == empresa_id)
         )
         if result.scalar_one_or_none() is None:
             raise HTTPException(
@@ -56,7 +57,7 @@ async def crear_cita(
     nueva_cita = CitaVisita(
         obra_id=datos.obra_id,
         nombre_referencia=datos.nombre_referencia,
-        usuario_id=admin.id,
+        usuario_id=empresa_id,
         fecha_hora=datos.fecha_hora,
         notas=datos.notas,
         recordatorio_minutos_antes=datos.recordatorio_minutos_antes,
@@ -74,10 +75,10 @@ async def listar_citas(
     desde: datetime | None = None,
     hasta: datetime | None = None,
     obra_id: int | None = None,
-    admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(CitaVisita).where(CitaVisita.usuario_id == admin.id)
+    query = select(CitaVisita).where(CitaVisita.usuario_id == empresa_id)
     if estado is not None:
         query = query.where(CitaVisita.estado == estado)
     if desde is not None:
@@ -94,10 +95,10 @@ async def listar_citas(
 @router.get("/{cita_id}", response_model=CitaVisitaOut)
 async def consultar_cita(
     cita_id: int,
-    admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    return await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
 
 
 @router.patch("/{cita_id}", response_model=CitaVisitaOut)
@@ -107,7 +108,8 @@ async def reprogramar_cita(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
 
     if datos.fecha_hora is not None:
         cita.fecha_hora = datos.fecha_hora
@@ -136,7 +138,8 @@ async def cambiar_estado_cita(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     cita.estado = datos.estado
     await db.commit()
     await db.refresh(cita)
@@ -149,6 +152,7 @@ async def eliminar_cita(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     await db.delete(cita)
     await db.commit()
