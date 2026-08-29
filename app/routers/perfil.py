@@ -26,6 +26,10 @@ def _serializar(perfil: PerfilEmpresa) -> PerfilEmpresaOut:
         nombre_empresa=perfil.nombre_empresa,
         logo_url=url_publica(perfil.logo_ruta) if perfil.logo_ruta else None,
         color_principal=perfil.color_principal,
+        direccion=perfil.direccion,
+        telefono=perfil.telefono,
+        correo=perfil.correo,
+        cif=perfil.cif,
         updated_at=perfil.updated_at,
     )
 
@@ -51,6 +55,10 @@ async def obtener_perfil(
 async def actualizar_perfil(
     nombre_empresa: str = Form(...),
     color_principal: str = Form(default="#1E3A5F"),
+    direccion: str | None = Form(default=None),
+    telefono: str | None = Form(default=None),
+    correo: str | None = Form(default=None),
+    cif: str | None = Form(default=None),
     logo: UploadFile | None = File(default=None),
     admin: Usuario = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
@@ -71,11 +79,19 @@ async def actualizar_perfil(
             usuario_id=admin.id,
             nombre_empresa=nombre_empresa,
             color_principal=color_principal,
+            direccion=direccion,
+            telefono=telefono,
+            correo=correo,
+            cif=cif,
         )
         db.add(perfil)
     else:
         perfil.nombre_empresa = nombre_empresa
         perfil.color_principal = color_principal
+        perfil.direccion = direccion
+        perfil.telefono = telefono
+        perfil.correo = correo
+        perfil.cif = cif
 
     if logo is not None:
         try:

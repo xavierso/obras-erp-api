@@ -203,6 +203,41 @@ async def obtener_eventos_calendario(
                 estado=ev.estado
             ))
 
+    # 6. ACTIVIDADES DE CRONOGRAMA
+    if not tipos or "cronograma" in tipos or "hito" in tipos:
+        from app.models.actividad_cronograma import ActividadCronograma
+        q_crono = select(ActividadCronograma).options(selectinload(ActividadCronograma.obra)).join(Obra, isouter=True)
+        
+        if obra_id:
+            q_crono = q_crono.where(ActividadCronograma.obra_id == obra_id)
+        elif obras_accesibles is not None:
+            q_crono = q_crono.where(ActividadCronograma.obra_id.in_(obras_accesibles))
+            
+        if responsable_id:
+            q_crono = q_crono.where(ActividadCronograma.responsable_id == responsable_id)
+            
+        if fecha_inicio:
+            q_crono = q_crono.where(ActividadCronograma.fecha_fin_prevista >= fecha_inicio)
+        if fecha_fin:
+            q_crono = q_crono.where(ActividadCronograma.fecha_inicio <= fecha_fin)
+
+        res_crono = await db.execute(q_crono)
+        actividades = res_crono.scalars().all()
+        for act in actividades:
+            eventos.append(EventoCalendarioOut(
+                id=f"crono-{act.id}",
+                tipo="hito" if act.es_hito else "cronograma",
+                titulo=f"[{act.porcentaje_avance}%] {act.nombre}",
+                descripcion=act.observaciones,
+                obra_id=act.obra_id,
+                obra_nombre=act.obra.nombre if act.obra else None,
+                responsable_id=act.responsable_id,
+                fecha=act.fecha_inicio, # O usar fecha_fin_prevista según cómo lo quiera ver en calendario
+                hora_inicio=None,
+                hora_fin=None,
+                estado=act.estado.value
+            ))
+
     # Ordenar por fecha
     eventos.sort(key=lambda x: (x.fecha, x.hora_inicio or time.min))
     return eventos

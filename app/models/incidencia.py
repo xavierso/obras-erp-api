@@ -30,9 +30,10 @@ class Incidencia(Base):
     codigo: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
     
     obra_id: Mapped[int] = mapped_column(ForeignKey("obras.id", ondelete="CASCADE"), nullable=False, index=True)
-    visita_id: Mapped[int | None] = mapped_column(ForeignKey("visitas.id", ondelete="CASCADE"), nullable=True, index=True)
+    visita_id: Mapped[int | None] = mapped_column(ForeignKey("visitas.id", ondelete="SET NULL"), nullable=True, index=True)
     creador_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
     responsable_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    actividad_id: Mapped[int | None] = mapped_column(ForeignKey("actividades_cronograma.id", ondelete="SET NULL"), nullable=True, index=True)
     
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,6 +59,7 @@ class Incidencia(Base):
     # Relaciones
     obra: Mapped["Obra"] = relationship(back_populates="incidencias")
     visita: Mapped["Visita | None"] = relationship(back_populates="incidencias")
+    actividad: Mapped["ActividadCronograma | None"] = relationship()
     creador: Mapped["Usuario"] = relationship(foreign_keys=[creador_id], back_populates="incidencias_creadas")
     responsable: Mapped["Usuario | None"] = relationship(foreign_keys=[responsable_id], back_populates="incidencias_asignadas")
     

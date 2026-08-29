@@ -18,6 +18,7 @@ class IncidenciaBase(BaseModel):
 
 class IncidenciaCreate(IncidenciaBase):
     visita_id: Optional[int] = None
+    actividad_id: Optional[int] = None
     responsable_id: Optional[int] = None
 
 
@@ -28,6 +29,7 @@ class IncidenciaUpdate(BaseModel):
     fecha_deteccion: Optional[date] = None
     fecha_limite: Optional[date] = None
     responsable_id: Optional[int] = None
+    actividad_id: Optional[int] = None
     estado: Optional[EstadoIncidencia] = None
 
 
@@ -62,6 +64,7 @@ class IncidenciaResponse(IncidenciaBase):
     codigo: str
     obra_id: int
     visita_id: Optional[int] = None
+    actividad_id: Optional[int] = None
     creador_id: int
     responsable_id: Optional[int] = None
     fecha_resolucion: Optional[date] = None

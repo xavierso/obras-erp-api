@@ -14,6 +14,8 @@ class ResumenDashboard(BaseModel):
     visitas_hoy: int
     visitas_semana: int
     documentos_nuevos_semana: int
+    actividades_retrasadas_total: int
+    obras_avance: list[dict]
 
 
 @router.get("/resumen", response_model=ResumenDashboard)

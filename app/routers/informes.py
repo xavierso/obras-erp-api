@@ -35,8 +35,11 @@ async def generar_informe(
     informe (portada + cronología), pero limitado a esa única visita.
     Además, permite filtrar por un rango de fechas con `fecha_inicio` y `fecha_fin`.
     """
+    from sqlalchemy.orm import selectinload
     result = await db.execute(
-        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == admin.id)
+        select(Obra)
+        .options(selectinload(Obra.presupuestos))
+        .where(Obra.id == obra_id, Obra.usuario_id == admin.id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:

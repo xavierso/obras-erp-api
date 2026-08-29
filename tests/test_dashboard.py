@@ -8,7 +8,9 @@ async def test_dashboard_resumen(auth_client: AsyncClient):
         "obras_activas": 5,
         "visitas_hoy": 2,
         "visitas_semana": 10,
-        "documentos_nuevos_semana": 3
+        "documentos_nuevos_semana": 3,
+        "actividades_retrasadas_total": 0,
+        "obras_avance": []
     }
     
     with patch("app.routers.dashboard.obtener_resumen_dashboard", return_value=mock_resumen):

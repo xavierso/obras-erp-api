@@ -39,10 +39,10 @@ class Visita(Base):
         back_populates="visita", cascade="all, delete-orphan"
     )
     tareas: Mapped[list["Tarea"]] = relationship(
-        back_populates="visita", cascade="all, delete-orphan"
+        back_populates="visita"
     )
     incidencias: Mapped[list["Incidencia"]] = relationship(
-        back_populates="visita", cascade="all, delete-orphan"
+        back_populates="visita"
     )
 
     def __repr__(self) -> str:

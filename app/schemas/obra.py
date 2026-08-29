@@ -28,6 +28,12 @@ class ObraOut(BaseModel):
     # Calculados aparte (no son columnas de Obra) — ver routers/obras.py.
     total_visitas: int = 0
     ultima_visita_fecha: datetime | None = None
+    
+    # Resumen económico de la obra
+    presupuesto_aprobado: float | None = None
+    coste_estimado: float | None = None
+    margen_estimado: float | None = None
+    estado_presupuesto: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

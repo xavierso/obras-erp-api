@@ -15,6 +15,7 @@ class TareaBase(BaseModel):
 
 class TareaCreate(TareaBase):
     visita_id: Optional[int] = None
+    actividad_id: Optional[int] = None
 
 
 class TareaUpdate(BaseModel):
@@ -23,6 +24,7 @@ class TareaUpdate(BaseModel):
     fecha_limite: Optional[date] = None
     responsable_id: Optional[int] = None
     estado: Optional[EstadoTarea] = None
+    actividad_id: Optional[int] = None
 
 
 class HistorialTareaResponse(BaseModel):
@@ -61,6 +63,7 @@ class TareaResponse(TareaBase):
     id: int
     obra_id: int
     visita_id: Optional[int] = None
+    actividad_id: Optional[int] = None
     creador_id: int
     created_at: datetime
     updated_at: datetime

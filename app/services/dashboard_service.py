@@ -59,9 +59,41 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
     )
     documentos_nuevos_semana = result.scalar_one()
 
+    from app.models.actividad_cronograma import ActividadCronograma, EstadoActividad
+    from datetime import date
+    hoy = date.today()
+
+    # Actividades retrasadas
+    result = await db.execute(
+        select(func.count())
+        .select_from(ActividadCronograma)
+        .join(Obra, Obra.id == ActividadCronograma.obra_id)
+        .where(
+            Obra.usuario_id == usuario_id,
+            Obra.estado.notin_(ESTADOS_NO_ACTIVOS),
+            ActividadCronograma.porcentaje_avance < 100,
+            ActividadCronograma.estado_base != EstadoActividad.CANCELADA,
+            ActividadCronograma.fecha_fin_prevista < hoy
+        )
+    )
+    actividades_retrasadas_total = result.scalar_one()
+
+    # Obras avance
+    result = await db.execute(
+        select(Obra.id, Obra.nombre, Obra.progreso_porcentaje)
+        .where(Obra.usuario_id == usuario_id, Obra.estado.notin_(ESTADOS_NO_ACTIVOS))
+    )
+    obras = result.all()
+    obras_avance = [
+        {"id": o.id, "nombre": o.nombre, "progreso_porcentaje": o.progreso_porcentaje or 0}
+        for o in obras
+    ]
+
     return {
         "obras_activas": obras_activas,
         "visitas_hoy": visitas_hoy,
         "visitas_semana": visitas_semana,
         "documentos_nuevos_semana": documentos_nuevos_semana,
+        "actividades_retrasadas_total": actividades_retrasadas_total,
+        "obras_avance": obras_avance,
     }

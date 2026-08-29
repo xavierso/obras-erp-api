@@ -32,7 +32,10 @@ async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSe
 
 
 async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
-    """Añade total_visitas y ultima_visita_fecha, calculados aparte."""
+    """Añade total_visitas y ultima_visita_fecha, y resumen económico, calculados aparte."""
+    from app.models.presupuesto import Presupuesto, CapituloPresupuesto
+    from sqlalchemy.orm import selectinload
+
     result = await db.execute(
         select(func.count(Visita.id), func.max(Visita.fecha)).where(Visita.obra_id == obra.id)
     )
@@ -40,6 +43,27 @@ async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
     item = ObraOut.model_validate(obra)
     item.total_visitas = total or 0
     item.ultima_visita_fecha = ultima
+
+    # Calcular resumen económico
+    res_presup = await db.execute(
+        select(Presupuesto)
+        .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas))
+        .where(Presupuesto.obra_id == obra.id, Presupuesto.es_version_activa == True)
+    )
+    presup = res_presup.scalar_one_or_none()
+    
+    if presup:
+        item.presupuesto_aprobado = presup.total
+        
+        # Calcular coste estimado sumando coste_total de todas las partidas
+        coste_est = sum(p.coste_total for c in presup.capitulos for p in c.partidas)
+        item.coste_estimado = coste_est
+        
+        # Margen = Precio de Venta (Sin IVA) - Coste
+        item.margen_estimado = presup.coste_directo - coste_est
+        
+        item.estado_presupuesto = presup.estado.value
+
     return item
 
 
