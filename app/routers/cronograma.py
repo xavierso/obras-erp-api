@@ -2,6 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.actividad_cronograma import ActividadCronograma
@@ -28,12 +29,29 @@ async def create_actividad(
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
-    db_actividad = ActividadCronograma(**actividad.model_dump())
+    data = actividad.model_dump()
+    preds_ids = data.pop("predecesoras_ids", [])
+    
+    db_actividad = ActividadCronograma(**data)
+    
+    if preds_ids:
+        preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids)))
+        db_actividad.predecesoras = list(preds_result.scalars().all())
+
     db.add(db_actividad)
     await db.commit()
     await db.refresh(db_actividad)
-    await actualizar_progreso_obra(db_actividad.obra_id, db)
-    return db_actividad
+    
+    # Reload with selectinload to avoid LazyLoading error on property
+    result = await db.execute(
+        select(ActividadCronograma)
+        .options(selectinload(ActividadCronograma.predecesoras))
+        .where(ActividadCronograma.id == db_actividad.id)
+    )
+    db_actividad_loaded = result.scalar_one()
+
+    await actualizar_progreso_obra(db_actividad_loaded.obra_id, db)
+    return db_actividad_loaded
 
 
 @router.get("/obra/{obra_id}", response_model=List[ActividadCronogramaResponse])
@@ -43,7 +61,10 @@ async def get_actividades_por_obra(
     current_user=Depends(get_current_user),
 ):
     result = await db.execute(
-        select(ActividadCronograma).where(ActividadCronograma.obra_id == obra_id).order_by(ActividadCronograma.fecha_inicio)
+        select(ActividadCronograma)
+        .options(selectinload(ActividadCronograma.predecesoras))
+        .where(ActividadCronograma.obra_id == obra_id)
+        .order_by(ActividadCronograma.fecha_inicio)
     )
     actividades = result.scalars().all()
     return actividades
@@ -55,7 +76,11 @@ async def get_actividad(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id == actividad_id))
+    result = await db.execute(
+        select(ActividadCronograma)
+        .options(selectinload(ActividadCronograma.predecesoras))
+        .where(ActividadCronograma.id == actividad_id)
+    )
     actividad = result.scalar_one_or_none()
     if not actividad:
         raise HTTPException(status_code=404, detail="Actividad no encontrada")
@@ -69,19 +94,41 @@ async def update_actividad(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id == actividad_id))
+    result = await db.execute(
+        select(ActividadCronograma)
+        .options(selectinload(ActividadCronograma.predecesoras))
+        .where(ActividadCronograma.id == actividad_id)
+    )
     actividad = result.scalar_one_or_none()
     if not actividad:
         raise HTTPException(status_code=404, detail="Actividad no encontrada")
 
     update_data = actividad_update.model_dump(exclude_unset=True)
+    
+    if "predecesoras_ids" in update_data:
+        preds_ids = update_data.pop("predecesoras_ids")
+        if preds_ids is not None:
+            preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids)))
+            actividad.predecesoras = list(preds_result.scalars().all())
+        else:
+            actividad.predecesoras = []
+
     for key, value in update_data.items():
         setattr(actividad, key, value)
 
     await db.commit()
     await db.refresh(actividad)
-    await actualizar_progreso_obra(actividad.obra_id, db)
-    return actividad
+    
+    # Reload
+    result_reload = await db.execute(
+        select(ActividadCronograma)
+        .options(selectinload(ActividadCronograma.predecesoras))
+        .where(ActividadCronograma.id == actividad_id)
+    )
+    actividad_loaded = result_reload.scalar_one()
+
+    await actualizar_progreso_obra(actividad_loaded.obra_id, db)
+    return actividad_loaded
 
 
 @router.delete("/{actividad_id}", status_code=status.HTTP_204_NO_CONTENT)

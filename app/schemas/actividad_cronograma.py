@@ -20,6 +20,7 @@ class ActividadCronogramaBase(BaseModel):
 
 class ActividadCronogramaCreate(ActividadCronogramaBase):
     obra_id: int
+    predecesoras_ids: Optional[list[int]] = Field(default_factory=list)
 
 
 class ActividadCronogramaUpdate(BaseModel):
@@ -33,6 +34,7 @@ class ActividadCronogramaUpdate(BaseModel):
     prioridad: Optional[str] = Field(default=None, max_length=50)
     observaciones: Optional[str] = Field(default=None, max_length=500)
     es_hito: Optional[bool] = None
+    predecesoras_ids: Optional[list[int]] = None
 
 
 class ActividadCronogramaResponse(ActividadCronogramaBase):
@@ -41,6 +43,7 @@ class ActividadCronogramaResponse(ActividadCronogramaBase):
     estado: EstadoActividad  # Este es el estado dinámico
     created_at: datetime
     updated_at: datetime
+    predecesoras_ids: list[int] = []
 
     class Config:
         from_attributes = True

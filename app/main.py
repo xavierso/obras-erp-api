@@ -32,6 +32,7 @@ from app.routers import (
     cronograma,
     presupuestos,
     certificaciones,
+    exportacion,
 )
 from app.services.scheduler_service import detener_scheduler, iniciar_scheduler
 
@@ -90,6 +91,7 @@ app.include_router(calendario.router)
 app.include_router(cronograma.router)
 app.include_router(presupuestos.router)
 app.include_router(certificaciones.router)
+app.include_router(exportacion.router)
 
 # Sirve los archivos subidos (fotos, documentos, logos) en /files/...
 Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)

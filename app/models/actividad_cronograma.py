@@ -1,10 +1,18 @@
 from datetime import date, datetime, timezone
 import enum
 
-from sqlalchemy import Date, Integer, String, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Date, Integer, String, DateTime, ForeignKey, Enum as SAEnum, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+actividades_dependencias = Table(
+    "actividades_dependencias",
+    Base.metadata,
+    Column("predecesora_id", Integer, ForeignKey("actividades_cronograma.id", ondelete="CASCADE"), primary_key=True),
+    Column("sucesora_id", Integer, ForeignKey("actividades_cronograma.id", ondelete="CASCADE"), primary_key=True)
+)
+
 
 
 class EstadoActividad(str, enum.Enum):
@@ -48,6 +56,21 @@ class ActividadCronograma(Base):
     responsable: Mapped["Usuario"] = relationship()
     partida_presupuesto: Mapped["PartidaPresupuesto"] = relationship(back_populates="actividades_cronograma")
     
+    predecesoras: Mapped[list["ActividadCronograma"]] = relationship(
+        "ActividadCronograma",
+        secondary=actividades_dependencias,
+        primaryjoin=id == actividades_dependencias.c.sucesora_id,
+        secondaryjoin=id == actividades_dependencias.c.predecesora_id,
+        back_populates="sucesoras",
+    )
+    sucesoras: Mapped[list["ActividadCronograma"]] = relationship(
+        "ActividadCronograma",
+        secondary=actividades_dependencias,
+        primaryjoin=id == actividades_dependencias.c.predecesora_id,
+        secondaryjoin=id == actividades_dependencias.c.sucesora_id,
+        back_populates="predecesoras",
+    )
+
     # Relaciones futuras con Tareas e Incidencias se añadirán en sus respectivos modelos
 
     created_at: Mapped[datetime] = mapped_column(
@@ -78,6 +101,10 @@ class ActividadCronograma(Base):
             return EstadoActividad.EN_EJECUCION
             
         return EstadoActividad.NO_INICIADA
+
+    @property
+    def predecesoras_ids(self) -> list[int]:
+        return [p.id for p in self.predecesoras]
 
     def __repr__(self) -> str:
         return f"<ActividadCronograma id={self.id} nombre={self.nombre} avance={self.porcentaje_avance}%>"
