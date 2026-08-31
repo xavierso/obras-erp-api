@@ -84,14 +84,15 @@ async def approve_presupuesto(
 
 from app.services.presupuesto_service import cambiar_estado_presupuesto
 
-@router.put("/{presupuesto_id}/estado", response_model=PresupuestoOut)
+@router.put("/{presupuesto_id}/estado")
 async def update_estado(
     presupuesto_id: int,
     data: PresupuestoEstadoUpdate,
     db: AsyncSession = Depends(get_db),
     usuario: Usuario = Depends(get_current_user)
 ):
-    return await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
+    presupuesto = await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
+    return {"id": presupuesto.id, "estado": presupuesto.estado.value, "message": "Estado actualizado"}
 
 
 @router.post("/{presupuesto_id}/generar-cronograma")
