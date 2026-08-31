@@ -168,30 +168,43 @@ async def aprobar_presupuesto(db: AsyncSession, presupuesto_id: int, aprobador_i
     return await get_presupuesto(db, presupuesto_id)
 
 
-async def cambiar_estado_presupuesto(db: AsyncSession, presupuesto_id: int, nuevo_estado: EstadoPresupuesto) -> Presupuesto:
-    presupuesto = await get_presupuesto(db, presupuesto_id)
-    if not presupuesto:
-        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
-        
-    presupuesto.estado = nuevo_estado
+async def cambiar_estado_presupuesto(db: AsyncSession, presupuesto_id: int, nuevo_estado: EstadoPresupuesto):
+    from sqlalchemy import update
     
+    # Direct UPDATE without loading relations
+    result = await db.execute(
+        update(Presupuesto)
+        .where(Presupuesto.id == presupuesto_id)
+        .values(estado=nuevo_estado)
+        .returning(Presupuesto.id, Presupuesto.estado)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    
+    # Handle cancellation: deactivate and clean up cronograma
     if nuevo_estado == EstadoPresupuesto.CANCELADO:
-        presupuesto.es_version_activa = False
-        partidas_ids = []
-        for cap in presupuesto.capitulos:
-            for part in cap.partidas:
-                partidas_ids.append(part.id)
-                
+        await db.execute(
+            update(Presupuesto)
+            .where(Presupuesto.id == presupuesto_id)
+            .values(es_version_activa=False)
+        )
+        from app.models.actividad_cronograma import ActividadCronograma
+        partidas_result = await db.execute(
+            select(PartidaPresupuesto.id)
+            .join(CapituloPresupuesto)
+            .where(CapituloPresupuesto.presupuesto_id == presupuesto_id)
+        )
+        partidas_ids = [r[0] for r in partidas_result.all()]
         if partidas_ids:
-            from app.models.actividad_cronograma import ActividadCronograma
             await db.execute(
                 ActividadCronograma.__table__.delete().where(
                     ActividadCronograma.partida_presupuesto_id.in_(partidas_ids)
                 )
             )
-            
+    
     await db.commit()
-    return await get_presupuesto(db, presupuesto_id)
+    return {"id": presupuesto_id, "estado": nuevo_estado.value}
 
 
 async def generar_cronograma_desde_presupuesto(db: AsyncSession, presupuesto_id: int, partidas_ids: List[int], usuario_id: int):

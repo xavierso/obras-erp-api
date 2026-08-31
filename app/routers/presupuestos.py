@@ -91,8 +91,7 @@ async def update_estado(
     db: AsyncSession = Depends(get_db),
     usuario: Usuario = Depends(get_current_user)
 ):
-    presupuesto = await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
-    return {"id": presupuesto.id, "estado": presupuesto.estado.value, "message": "Estado actualizado"}
+    return await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
 
 
 @router.post("/{presupuesto_id}/generar-cronograma")
