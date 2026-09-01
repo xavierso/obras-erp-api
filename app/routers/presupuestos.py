@@ -92,7 +92,14 @@ async def update_estado(
     db: AsyncSession = Depends(get_db),
     usuario: Usuario = Depends(get_current_user)
 ):
-    return await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
+    import traceback
+    try:
+        return await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 @router.post("/{presupuesto_id}/generar-cronograma")
