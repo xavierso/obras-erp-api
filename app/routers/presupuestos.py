@@ -85,6 +85,7 @@ async def approve_presupuesto(
 from app.services.presupuesto_service import cambiar_estado_presupuesto
 
 @router.put("/{presupuesto_id}/estado")
+@router.post("/{presupuesto_id}/estado")
 async def update_estado(
     presupuesto_id: int,
     data: PresupuestoEstadoUpdate,
