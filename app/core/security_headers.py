@@ -1,32 +1,38 @@
 """
 Cabeceras de seguridad HTTP, aplicadas a toda respuesta de la API.
 
-No sustituyen a HTTPS en producción (eso lo gestiona el servidor/proxy
-delante de uvicorn, ej. Nginx o el balanceador del hosting), pero
-reducen superficie de ataque del lado del navegador (para /docs, para
-cualquier panel web futuro, y para los archivos servidos en /files).
+Usa un middleware ASGI puro en lugar de BaseHTTPMiddleware para evitar
+problemas con CORS (BaseHTTPMiddleware puede tragarse las cabeceras
+CORS en respuestas de error, causando "Network Error" en el navegador).
 """
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import settings
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
-        response = await call_next(request)
+class SecurityHeadersMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
 
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # HSTS solo tiene sentido si de verdad se sirve por HTTPS (en
-        # DEBUG/desarrollo local por HTTP, mandarlo rompería pruebas).
-        if not settings.DEBUG:
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=63072000; includeSubDomains"
-            )
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = dict(message.get("headers", []))
+                extra_headers = [
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"x-frame-options", b"DENY"),
+                    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+                    (b"permissions-policy", b"geolocation=(), microphone=(), camera=()"),
+                ]
+                if not settings.DEBUG:
+                    extra_headers.append(
+                        (b"strict-transport-security", b"max-age=63072000; includeSubDomains")
+                    )
+                message["headers"] = list(message.get("headers", [])) + extra_headers
+            await send(message)
 
-        return response
+        await self.app(scope, receive, send_with_headers)

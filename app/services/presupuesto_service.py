@@ -169,39 +169,19 @@ async def aprobar_presupuesto(db: AsyncSession, presupuesto_id: int, aprobador_i
 
 
 async def cambiar_estado_presupuesto(db: AsyncSession, presupuesto_id: int, nuevo_estado: EstadoPresupuesto):
-    from sqlalchemy import update
-    
-    # Direct UPDATE without loading relations
+    # Simple SELECT without loading relations
     result = await db.execute(
-        update(Presupuesto)
-        .where(Presupuesto.id == presupuesto_id)
-        .values(estado=nuevo_estado)
-        .returning(Presupuesto.id, Presupuesto.estado)
+        select(Presupuesto).where(Presupuesto.id == presupuesto_id)
     )
-    row = result.first()
-    if not row:
+    presupuesto = result.scalar_one_or_none()
+    if not presupuesto:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
     
-    # Handle cancellation: deactivate and clean up cronograma
+    presupuesto.estado = nuevo_estado
+    
+    # Handle cancellation
     if nuevo_estado == EstadoPresupuesto.CANCELADO:
-        await db.execute(
-            update(Presupuesto)
-            .where(Presupuesto.id == presupuesto_id)
-            .values(es_version_activa=False)
-        )
-        from app.models.actividad_cronograma import ActividadCronograma
-        partidas_result = await db.execute(
-            select(PartidaPresupuesto.id)
-            .join(CapituloPresupuesto)
-            .where(CapituloPresupuesto.presupuesto_id == presupuesto_id)
-        )
-        partidas_ids = [r[0] for r in partidas_result.all()]
-        if partidas_ids:
-            await db.execute(
-                ActividadCronograma.__table__.delete().where(
-                    ActividadCronograma.partida_presupuesto_id.in_(partidas_ids)
-                )
-            )
+        presupuesto.es_version_activa = False
     
     await db.commit()
     return {"id": presupuesto_id, "estado": nuevo_estado.value}
