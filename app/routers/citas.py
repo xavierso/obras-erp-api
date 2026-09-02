@@ -38,12 +38,12 @@ async def _obtener_cita_de_la_empresa(cita_id: int, empresa_id: int, db: AsyncSe
 async def crear_cita(
     datos: CitaVisitaCreate,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     if datos.obra_id is not None:
         result = await db.execute(
-            select(Obra).where(Obra.id == datos.obra_id, Obra.usuario_id == empresa_id)
+            select(Obra).where(Obra.id == datos.obra_id, Obra.empresa_id == empresa_id)
         )
         if result.scalar_one_or_none() is None:
             raise HTTPException(
@@ -106,9 +106,9 @@ async def reprogramar_cita(
     cita_id: int,
     datos: CitaVisitaUpdate,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
 
     if datos.fecha_hora is not None:
@@ -136,9 +136,9 @@ async def cambiar_estado_cita(
     cita_id: int,
     datos: CitaVisitaEstadoUpdate,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     cita.estado = datos.estado
     await db.commit()
@@ -150,9 +150,9 @@ async def cambiar_estado_cita(
 async def eliminar_cita(
     cita_id: int,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     await db.delete(cita)
     await db.commit()

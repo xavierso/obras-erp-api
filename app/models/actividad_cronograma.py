@@ -29,6 +29,7 @@ class ActividadCronograma(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     obra_id: Mapped[int] = mapped_column(ForeignKey("obras.id", ondelete="CASCADE"), nullable=False)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
     
     fecha_inicio: Mapped[date] = mapped_column(Date, nullable=False)
     fecha_fin_prevista: Mapped[date] = mapped_column(Date, nullable=False)

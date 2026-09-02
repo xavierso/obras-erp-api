@@ -28,7 +28,7 @@ async def listar_todas_tareas(
     query = (
         select(Tarea)
         .join(Obra)
-        .where(Obra.usuario_id == empresa_id)
+        .where(Obra.empresa_id == empresa_id)
         .options(
             selectinload(Tarea.responsable),
             selectinload(Tarea.creador),
@@ -57,7 +57,7 @@ async def listar_tareas(
     db: AsyncSession = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id))
+    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
@@ -99,7 +99,7 @@ async def crear_tarea(
     usuario: Usuario = Depends(require_inspector_or_higher),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id))
+    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id))
     obra = result.scalar_one_or_none()
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
@@ -175,7 +175,7 @@ async def obtener_tarea(
     empresa_id: int = Depends(get_empresa_id),
 ):
     result = await db.execute(
-        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.usuario_id == empresa_id).options(
+        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.empresa_id == empresa_id).options(
             selectinload(Tarea.responsable),
             selectinload(Tarea.creador),
             selectinload(Tarea.archivos),
@@ -202,7 +202,7 @@ async def actualizar_tarea(
     empresa_id: int = Depends(get_empresa_id),
 ):
     result = await db.execute(
-        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.usuario_id == empresa_id).options(
+        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.empresa_id == empresa_id).options(
             selectinload(Tarea.responsable),
             selectinload(Tarea.creador),
             selectinload(Tarea.historial).selectinload(HistorialTarea.usuario)
@@ -286,7 +286,7 @@ async def eliminar_tarea(
     empresa_id: int = Depends(get_empresa_id),
 ):
     result = await db.execute(
-        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.usuario_id == empresa_id)
+        select(Tarea).join(Obra).where(Tarea.id == tarea_id, Obra.empresa_id == empresa_id)
     )
     tarea = result.scalar_one_or_none()
     if not tarea:

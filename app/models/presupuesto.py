@@ -41,6 +41,7 @@ class Presupuesto(Base):
     coste_estimado_obra: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     obra_id: Mapped[int | None] = mapped_column(ForeignKey("obras.id", ondelete="CASCADE"), nullable=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
     obra: Mapped["Obra | None"] = relationship(back_populates="presupuestos")
 
     creador_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)

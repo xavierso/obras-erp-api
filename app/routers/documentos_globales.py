@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
@@ -22,12 +22,13 @@ router = APIRouter(prefix="/documentos", tags=["Documentos (vista global)"])
 async def listar_todos_los_documentos(
     categoria: CategoriaDocumento | None = None,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
         select(Documento)
         .join(Obra, Obra.id == Documento.obra_id)
-        .where(Obra.usuario_id == admin.id)
+        .where(Obra.empresa_id == empresa_id)
     )
     if categoria is not None:
         query = query.where(Documento.categoria == categoria)

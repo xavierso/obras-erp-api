@@ -9,10 +9,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.cita_visita import CitaVisita
-from app.models.perfil_empresa import PerfilEmpresa
+from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.models.visita import TipoArchivoVisita
 from app.models.visita_potencial import VisitaPotencial, VisitaPotencialArchivo
@@ -25,9 +25,9 @@ router = APIRouter(prefix="/citas/{cita_id}/visitas-potenciales", tags=["Visitas
 EXTENSIONES_VIDEO = {".mp4", ".mov"}
 
 
-async def _obtener_cita_de_la_empresa(cita_id: int, admin: Usuario, db: AsyncSession) -> CitaVisita:
+async def _obtener_cita_de_la_empresa(cita_id: int, empresa_id: int, db: AsyncSession) -> CitaVisita:
     result = await db.execute(
-        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.usuario_id == admin.id)
+        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.empresa_id == empresa_id)
     )
     cita = result.scalar_one_or_none()
     if cita is None:
@@ -36,9 +36,9 @@ async def _obtener_cita_de_la_empresa(cita_id: int, admin: Usuario, db: AsyncSes
 
 
 async def _obtener_visita_potencial_de_la_empresa(
-    cita_id: int, visita_potencial_id: int, admin: Usuario, db: AsyncSession
+    cita_id: int, visita_potencial_id: int, empresa_id: int, db: AsyncSession
 ) -> VisitaPotencial:
-    await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     result = await db.execute(
         select(VisitaPotencial).where(
             VisitaPotencial.id == visita_potencial_id,
@@ -79,7 +79,7 @@ async def registrar_visita_potencial(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
 
     nueva_visita = VisitaPotencial(cita_id=cita.id, usuario_id=admin.id, descripcion=descripcion)
     db.add(nueva_visita)
@@ -120,7 +120,7 @@ async def listar_visitas_potenciales(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     result = await db.execute(
         select(VisitaPotencial)
         .where(VisitaPotencial.cita_id == cita.id)
@@ -141,19 +141,19 @@ async def generar_parte_de_trabajo(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
 ):
-    cita = await _obtener_cita_de_la_empresa(cita_id, admin, db)
-    visita = await _obtener_visita_potencial_de_la_empresa(cita_id, visita_potencial_id, admin, db)
+    cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
+    visita = await _obtener_visita_potencial_de_la_empresa(cita_id, visita_potencial_id, empresa_id, db)
     await db.refresh(visita, attribute_names=["archivos"])
 
     result = await db.execute(
-        select(PerfilEmpresa).where(PerfilEmpresa.usuario_id == admin.id)
+        select(Empresa).where(Empresa.id == empresa_id)
     )
     perfil = result.scalar_one_or_none()
 
     pdf_bytes = generar_parte_trabajo_pdf(
         cita=cita,
         visita_potencial=visita,
-        nombre_empresa=perfil.nombre_empresa if perfil else None,
+        nombre_empresa=perfil.nombre if perfil else None,
         color_principal=perfil.color_principal if perfil else None,
     )
 

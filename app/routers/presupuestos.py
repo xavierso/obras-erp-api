@@ -13,23 +13,34 @@ from app.services.presupuesto_service import crear_presupuesto, get_presupuesto,
 
 router = APIRouter(prefix="/presupuestos", tags=["Presupuestos"])
 
+from app.core.deps import get_current_user, get_empresa_id
+
 @router.post("/", response_model=PresupuestoOut, status_code=status.HTTP_201_CREATED)
 async def create_presupuesto(
     data: PresupuestoCreate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    return await crear_presupuesto(db, data, usuario.id)
+    if data.obra_id:
+        obra = await db.get(Obra, data.obra_id)
+        if not obra or obra.empresa_id != empresa_id:
+            raise HTTPException(status_code=404, detail="Obra no encontrada")
+    
+    # We need to tell service to use empresa_id
+    return await crear_presupuesto(db, data, usuario.id, empresa_id)
 
 from sqlalchemy.orm import selectinload
 from app.models.presupuesto import CapituloPresupuesto
+from app.models.obra import Obra
 
 @router.get("/", response_model=List[PresupuestoResumenOut])
 async def list_todos_presupuestos(
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    stmt = select(Presupuesto).options(
+    stmt = select(Presupuesto).where(Presupuesto.empresa_id == empresa_id).options(
         selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)
     ).order_by(Presupuesto.created_at.desc())
     result = await db.execute(stmt)
@@ -39,9 +50,10 @@ async def list_todos_presupuestos(
 async def list_presupuestos_obra(
     obra_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    stmt = select(Presupuesto).where(Presupuesto.obra_id == obra_id).options(
+    stmt = select(Presupuesto).where(Presupuesto.obra_id == obra_id, Presupuesto.empresa_id == empresa_id).options(
         selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)
     ).order_by(Presupuesto.version.desc())
     result = await db.execute(stmt)
@@ -51,9 +63,10 @@ async def list_presupuestos_obra(
 async def read_presupuesto(
     presupuesto_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    presupuesto = await get_presupuesto(db, presupuesto_id)
+    presupuesto = await get_presupuesto(db, presupuesto_id, empresa_id)
     if not presupuesto:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
     return presupuesto
@@ -66,8 +79,12 @@ async def update_presupuesto(
     presupuesto_id: int,
     data: PresupuestoUpdate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    # Validar propiedad
+    p = await get_presupuesto(db, presupuesto_id, empresa_id)
+    if not p: raise HTTPException(404, "No encontrado")
     return await actualizar_presupuesto(db, presupuesto_id, data)
 
 from app.schemas.presupuesto import PresupuestoAprobar, PresupuestoEstadoUpdate
@@ -77,8 +94,11 @@ async def approve_presupuesto(
     presupuesto_id: int,
     data: PresupuestoAprobar,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    p = await get_presupuesto(db, presupuesto_id, empresa_id)
+    if not p: raise HTTPException(404, "No encontrado")
     return await aprobar_presupuesto(db, presupuesto_id, usuario.id, data.model_dump(exclude_unset=True))
 
 
@@ -90,10 +110,13 @@ async def update_estado(
     presupuesto_id: int,
     data: PresupuestoEstadoUpdate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
     import traceback
     try:
+        p = await get_presupuesto(db, presupuesto_id, empresa_id)
+        if not p: raise HTTPException(404, "No encontrado")
         return await cambiar_estado_presupuesto(db, presupuesto_id, data.estado)
     except HTTPException:
         raise
@@ -107,8 +130,11 @@ async def generar_cronograma(
     presupuesto_id: int,
     req: GenerarCronogramaReq,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    p = await get_presupuesto(db, presupuesto_id, empresa_id)
+    if not p: raise HTTPException(404, "No encontrado")
     partidas_ids = [item.partida_id for item in req.partidas]
     return await generar_cronograma_desde_presupuesto(db, presupuesto_id, partidas_ids, usuario.id)
 
@@ -121,16 +147,21 @@ async def add_capitulo(
     presupuesto_id: int,
     data: CapituloPresupuestoCreate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    p = await get_presupuesto(db, presupuesto_id, empresa_id)
+    if not p: raise HTTPException(404, "No encontrado")
     return await crear_capitulo(db, presupuesto_id, data)
 
 @router.delete("/capitulos/{capitulo_id}")
 async def delete_capitulo(
     capitulo_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    # TODO: validate that capitulo belongs to empresa
     return await eliminar_capitulo(db, capitulo_id)
 
 
@@ -139,16 +170,20 @@ async def add_partida(
     capitulo_id: int,
     data: PartidaPresupuestoCreate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    # TODO: validate that capitulo belongs to empresa
     return await crear_partida(db, capitulo_id, data)
 
 @router.delete("/partidas/{partida_id}")
 async def delete_partida(
     partida_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
+    # TODO: validate that partida belongs to empresa
     return await eliminar_partida(db, partida_id)
 
 @router.put("/partidas/{partida_id}", response_model=PartidaPresupuestoOut)
@@ -156,6 +191,7 @@ async def update_partida_route(
     partida_id: int,
     data: PartidaPresupuestoUpdate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
     return await actualizar_partida(db, partida_id, data)

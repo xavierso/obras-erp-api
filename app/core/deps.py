@@ -49,17 +49,14 @@ async def get_current_user(
 
 async def get_empresa_id(usuario: Usuario = Depends(get_current_user)) -> int:
     """
-    Devuelve el id que identifica la "empresa" a la que pertenecen las
-    obras: el propio id si es admin, o el admin_id si es otro rol.
+    Devuelve el id que identifica la empresa del usuario.
     """
-    if usuario.rol == RolUsuario.ADMIN:
-        return usuario.id
-    if usuario.admin_id is None:
+    if usuario.empresa_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tu cuenta no está vinculada a ninguna empresa",
         )
-    return usuario.admin_id
+    return usuario.empresa_id
 
 
 async def require_admin(usuario: Usuario = Depends(get_current_user)) -> Usuario:

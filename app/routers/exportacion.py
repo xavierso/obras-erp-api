@@ -11,7 +11,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.drawing.image import Image as OpenpyxlImage
 
-from app.core.deps import require_director, get_current_user
+from app.core.deps import require_director, get_current_user, get_empresa_id
 from app.database import get_db
 from app.models.obra import Obra
 from app.models.presupuesto import Presupuesto, CapituloPresupuesto
@@ -19,7 +19,7 @@ from app.models.incidencia import Incidencia
 from app.models.tarea import Tarea
 from app.models.usuario import Usuario
 from app.models.invitacion import Invitacion, EstadoInvitacion
-from app.models.perfil_empresa import PerfilEmpresa
+from app.models.empresa import Empresa
 
 router = APIRouter(prefix="/exportar", tags=["Exportación"])
 
@@ -36,9 +36,9 @@ def apply_header_style(cell, color_principal: str = None):
     thin = Side(border_style="thin", color=border_color)
     cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
 
-def insert_company_header(ws, title: str, perfil: PerfilEmpresa):
+def insert_company_header(ws, title: str, perfil: Empresa):
     ws.merge_cells('A1:D1')
-    ws['A1'] = (perfil.nombre_empresa if perfil else "DIAM - GESTIÓN DE OBRAS").upper()
+    ws['A1'] = (perfil.nombre if perfil else "DIAM - GESTIÓN DE OBRAS").upper()
     ws['A1'].font = Font(size=14, bold=True, name="Space Grotesk", color="151513")
     ws['A1'].alignment = Alignment(horizontal="left", vertical="center")
     
@@ -57,8 +57,9 @@ def insert_company_header(ws, title: str, perfil: PerfilEmpresa):
 async def export_to_excel(
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    result = await db.execute(select(PerfilEmpresa).where(PerfilEmpresa.usuario_id == admin.id))
+    result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     perfil = result.scalar_one_or_none()
     color_principal = perfil.color_principal if perfil else "#1E3A5F"
 
@@ -75,7 +76,7 @@ async def export_to_excel(
         apply_header_style(cell, color_principal)
         
     result_pres = await db.execute(
-        select(Presupuesto).options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)).where(Presupuesto.creador_id == admin.id)
+        select(Presupuesto).options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)).where(Presupuesto.empresa_id == empresa_id)
     )
     presupuestos = result_pres.scalars().all()
     
@@ -95,7 +96,7 @@ async def export_to_excel(
         cell = ws_obras.cell(row=start_row, column=col, value=h)
         apply_header_style(cell, color_principal)
         
-    result_obras = await db.execute(select(Obra).where(Obra.usuario_id == admin.id))
+    result_obras = await db.execute(select(Obra).where(Obra.empresa_id == empresa_id))
     obras = result_obras.scalars().all()
     
     for i, o in enumerate(obras, start=start_row + 1):
@@ -113,7 +114,7 @@ async def export_to_excel(
         cell = ws_inc.cell(row=start_row, column=col, value=h)
         apply_header_style(cell, color_principal)
         
-    result_inc = await db.execute(select(Incidencia).options(selectinload(Incidencia.obra)).where(Incidencia.creador_id == admin.id))
+    result_inc = await db.execute(select(Incidencia).options(selectinload(Incidencia.obra)).where(Incidencia.empresa_id == empresa_id))
     incidencias = result_inc.scalars().all()
     
     for i, inc in enumerate(incidencias, start=start_row + 1):
@@ -131,7 +132,7 @@ async def export_to_excel(
         cell = ws_tar.cell(row=start_row, column=col, value=h)
         apply_header_style(cell, color_principal)
         
-    result_tar = await db.execute(select(Tarea).options(selectinload(Tarea.obra)).where(Tarea.creador_id == admin.id))
+    result_tar = await db.execute(select(Tarea).options(selectinload(Tarea.obra)).where(Tarea.empresa_id == empresa_id))
     tareas = result_tar.scalars().all()
     
     for i, tar in enumerate(tareas, start=start_row + 1):
@@ -150,9 +151,7 @@ async def export_to_excel(
         apply_header_style(cell, color_principal)
         
     result_act = await db.execute(
-        select(Usuario).where(
-            or_(Usuario.id == admin.id, Usuario.admin_id == admin.id)
-        )
+        select(Usuario).where(Usuario.empresa_id == empresa_id)
     )
     activos = result_act.scalars().all()
     
@@ -165,7 +164,7 @@ async def export_to_excel(
         
     result_pend = await db.execute(
         select(Invitacion).where(
-            Invitacion.admin_id == admin.id,
+            Invitacion.empresa_id == empresa_id,
             Invitacion.estado == EstadoInvitacion.PENDIENTE
         )
     )
@@ -208,7 +207,7 @@ async def export_to_excel(
     buffer.seek(0)
     
     fecha_str = datetime.now().strftime("%Y%m%d_%H%M")
-    empresa_str = perfil.nombre_empresa.replace(' ', '_') if perfil else 'Datos'
+    empresa_str = perfil.nombre.replace(' ', '_') if perfil else 'Datos'
     filename = f"Exportacion_{empresa_str}_{fecha_str}.xlsx"
 
     return StreamingResponse(
@@ -222,18 +221,19 @@ async def export_single_presupuesto(
     presupuesto_id: int,
     usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id)
 ):
     # Fetch Presupuesto with chapters and items
     result = await db.execute(
         select(Presupuesto)
         .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas))
-        .where(Presupuesto.id == presupuesto_id)
+        .where(Presupuesto.id == presupuesto_id, Presupuesto.empresa_id == empresa_id)
     )
     presupuesto = result.scalar_one_or_none()
     if not presupuesto:
-        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado o no autorizado")
         
-    result_perfil = await db.execute(select(PerfilEmpresa).where(PerfilEmpresa.usuario_id == usuario.id if usuario.rol == "ADMIN" else PerfilEmpresa.usuario_id == usuario.admin_id))
+    result_perfil = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     perfil = result_perfil.scalar_one_or_none()
     
     wb = openpyxl.Workbook()
@@ -258,7 +258,7 @@ async def export_single_presupuesto(
             ws.cell(row=row, column=col).fill = fill_dark
             
     ws.cell(row=2, column=2, value="PRESUPUESTO").font = Font(color=white, size=18, bold=True, name="Arial")
-    ws.cell(row=3, column=2, value=perfil.nombre_empresa if perfil else "DIAM - Empresa").font = Font(color=gold, size=12, bold=True, name="Arial")
+    ws.cell(row=3, column=2, value=perfil.nombre if perfil else "DIAM - Empresa").font = Font(color=gold, size=12, bold=True, name="Arial")
     
     dir_str = perfil.direccion if perfil and perfil.direccion else "Dirección no especificada"
     ws.cell(row=4, column=2, value=dir_str).font = Font(color=gray, size=9, name="Arial")

@@ -27,7 +27,7 @@ async def listar_todas_las_visitas(
     result = await db.execute(
         select(Visita)
         .join(Obra, Obra.id == Visita.obra_id)
-        .where(Obra.usuario_id == empresa_id)
+        .where(Obra.empresa_id == empresa_id)
         .order_by(Visita.fecha.desc())
         .limit(limite)
     )

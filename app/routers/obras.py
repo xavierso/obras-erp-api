@@ -23,7 +23,7 @@ router = APIRouter(prefix="/obras", tags=["Obras"])
 
 async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSession) -> Obra:
     result = await db.execute(
-        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id)
+        select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:
@@ -71,17 +71,16 @@ async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
 async def crear_obra(
     datos: ObraCreate,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     codigo = await generar_codigo_obra(db)
-    # director.id si es admin, o director.admin_id si es director real
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     nueva_obra = Obra(
         codigo=codigo,
         nombre=datos.nombre,
         cliente=datos.cliente,
         direccion=datos.direccion,
-        usuario_id=empresa_id,
+        empresa_id=empresa_id,
     )
     db.add(nueva_obra)
     await db.commit()
@@ -95,7 +94,7 @@ async def listar_obras(
     usuario: Usuario = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Obra).where(Obra.usuario_id == empresa_id)
+    query = select(Obra).where(Obra.empresa_id == empresa_id)
     if usuario.rol == RolUsuario.LECTOR:
         query = query.where(Obra.estado.not_in([EstadoObra.ARCHIVADA, EstadoObra.ENTREGADA, EstadoObra.FINALIZADA]))
     
@@ -141,9 +140,9 @@ async def cambiar_estado_obra(
     obra_id: int,
     datos: ObraEstadoUpdate,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     obra.estado = datos.estado
     await db.commit()
@@ -156,6 +155,7 @@ async def actualizar_detalle_obra(
     obra_id: int,
     datos: ObraDetalleUpdate,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -163,7 +163,6 @@ async def actualizar_detalle_obra(
     fecha de inicio, superficie, progreso visual, texto de estado actual).
     No toca el enum `estado` formal — para eso está /estado.
     """
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     datos_dict = datos.model_dump(exclude_unset=True)
     for campo, valor in datos_dict.items():
@@ -177,9 +176,9 @@ async def actualizar_detalle_obra(
 async def eliminar_obra(
     obra_id: int,
     admin: Usuario = Depends(require_admin),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = admin.id
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     await db.delete(obra)
     await db.commit()

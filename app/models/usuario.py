@@ -39,20 +39,16 @@ class Usuario(Base):
     rol: Mapped[RolUsuario] = mapped_column(
         SAEnum(RolUsuario), default=RolUsuario.ADMIN, nullable=False
     )
-    # Solo tiene valor si rol == INSPECTOR: apunta al Usuario (admin) al
-    # que pertenece. Los admins tienen admin_id = None.
-    admin_id: Mapped[int | None] = mapped_column(
-        ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=True
+    
+    empresa_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    obras: Mapped[list["Obra"]] = relationship(back_populates="propietario")
-    perfil_empresa: Mapped["PerfilEmpresa | None"] = relationship(
-        back_populates="usuario", uselist=False
-    )
+    empresa: Mapped["Empresa | None"] = relationship(back_populates="usuarios")
     tareas_creadas: Mapped[list["Tarea"]] = relationship(
         foreign_keys="[Tarea.creador_id]", back_populates="creador", cascade="all, delete-orphan"
     )

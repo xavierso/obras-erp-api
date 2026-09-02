@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.invitacion import EstadoInvitacion, Invitacion
 from app.models.usuario import RolUsuario, Usuario
@@ -38,6 +38,7 @@ class ResumenEquipo(BaseModel):
 async def invitar_miembro(
     datos: InvitacionCreate,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     if director.rol == RolUsuario.DIRECTOR and datos.rol not in (RolUsuario.INSPECTOR, RolUsuario.LECTOR):
@@ -45,8 +46,6 @@ async def invitar_miembro(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Un director solo puede invitar a inspectores o lectores",
         )
-
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
 
     result = await db.execute(select(Usuario).where(Usuario.email == datos.email))
     if result.scalar_one_or_none() is not None:
@@ -58,7 +57,7 @@ async def invitar_miembro(
     result = await db.execute(
         select(Invitacion).where(
             Invitacion.email == datos.email,
-            Invitacion.admin_id == empresa_id,
+            Invitacion.empresa_id == empresa_id,
             Invitacion.estado == EstadoInvitacion.PENDIENTE,
         )
     )
@@ -70,7 +69,7 @@ async def invitar_miembro(
 
     nueva_invitacion = Invitacion(
         email=datos.email,
-        admin_id=empresa_id,
+        empresa_id=empresa_id,
         rol=datos.rol,
         token=generar_token(),
         expira_at=calcular_expiracion(),
@@ -95,19 +94,19 @@ async def invitar_miembro(
 @router.get("", response_model=ResumenEquipo)
 async def ver_equipo(
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
         result = await db.execute(
-            select(Usuario).where(Usuario.admin_id == empresa_id).order_by(Usuario.created_at.desc())
+            select(Usuario).where(Usuario.empresa_id == empresa_id).order_by(Usuario.created_at.desc())
         )
         miembros = result.scalars().all()
 
         result = await db.execute(
             select(Invitacion)
             .where(
-                Invitacion.admin_id == empresa_id,
+                Invitacion.empresa_id == empresa_id,
                 Invitacion.estado == EstadoInvitacion.PENDIENTE,
                 Invitacion.expira_at > datetime.now(timezone.utc),
             )
@@ -129,13 +128,13 @@ async def ver_equipo(
 async def dar_de_baja_miembro(
     usuario_id: int,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     result = await db.execute(
         select(Usuario).where(
             Usuario.id == usuario_id,
-            Usuario.admin_id == empresa_id,
+            Usuario.empresa_id == empresa_id,
         )
     )
     miembro = result.scalar_one_or_none()
@@ -153,11 +152,11 @@ async def dar_de_baja_miembro(
 async def cancelar_invitacion(
     invitacion_id: int,
     director: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = director.id if director.rol == RolUsuario.ADMIN else director.admin_id
     result = await db.execute(
-        select(Invitacion).where(Invitacion.id == invitacion_id, Invitacion.admin_id == empresa_id)
+        select(Invitacion).where(Invitacion.id == invitacion_id, Invitacion.empresa_id == empresa_id)
     )
     invitacion = result.scalar_one_or_none()
     if invitacion is None:

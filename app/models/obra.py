@@ -49,8 +49,8 @@ class Obra(Base):
     # Compatibilidad opcional con el bot de Telegram existente.
     chat_id_telegram: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
-    propietario: Mapped["Usuario"] = relationship(back_populates="obras")
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False)
+    empresa: Mapped["Empresa"] = relationship(back_populates="obras")
     visitas: Mapped[list["Visita"]] = relationship(
         back_populates="obra", cascade="all, delete-orphan"
     )

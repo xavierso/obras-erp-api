@@ -27,6 +27,7 @@ class Tarea(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     obra_id: Mapped[int] = mapped_column(ForeignKey("obras.id", ondelete="CASCADE"), nullable=False, index=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
     visita_id: Mapped[int | None] = mapped_column(ForeignKey("visitas.id", ondelete="SET NULL"), nullable=True, index=True)
     creador_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
     responsable_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)

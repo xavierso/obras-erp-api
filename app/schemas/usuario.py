@@ -21,6 +21,7 @@ class UsuarioOut(BaseModel):
     nombre: str
     is_active: bool
     rol: RolUsuario
+    empresa_id: int | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -11,19 +11,20 @@ from app.models.actividad_cronograma import ActividadCronograma
 from app.schemas.presupuesto import PresupuestoCreate, PresupuestoUpdate, CapituloPresupuestoCreate, PartidaPresupuestoCreate
 
 
-async def get_presupuesto(db: AsyncSession, presupuesto_id: int) -> Optional[Presupuesto]:
-    result = await db.execute(
-        select(Presupuesto)
-        .options(
-            selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas),
-            selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.subcapitulos)
-        )
-        .where(Presupuesto.id == presupuesto_id)
-    )
+async def get_presupuesto(db: AsyncSession, presupuesto_id: int, empresa_id: int = None) -> Optional[Presupuesto]:
+    stmt = select(Presupuesto).options(
+        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas),
+        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.subcapitulos)
+    ).where(Presupuesto.id == presupuesto_id)
+    
+    if empresa_id is not None:
+        stmt = stmt.where(Presupuesto.empresa_id == empresa_id)
+        
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def crear_presupuesto(db: AsyncSession, data: PresupuestoCreate, creador_id: int) -> Presupuesto:
+async def crear_presupuesto(db: AsyncSession, data: PresupuestoCreate, creador_id: int, empresa_id: int = None) -> Presupuesto:
     # Check if Obra exists if obra_id is provided
     if data.obra_id:
         obra = await db.get(Obra, data.obra_id)
@@ -69,6 +70,7 @@ async def crear_presupuesto(db: AsyncSession, data: PresupuestoCreate, creador_i
         coste_estimado_obra=data.coste_estimado_obra,
         obra_id=data.obra_id,
         creador_id=creador_id,
+        empresa_id=empresa_id,
         cliente_nombre=getattr(data, 'cliente_nombre', None),
         direccion=getattr(data, 'direccion', None),
         codigo_postal=getattr(data, 'codigo_postal', None)

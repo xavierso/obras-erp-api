@@ -7,7 +7,7 @@ from app.models.usuario import Usuario, RolUsuario
 from app.models.obra import Obra, EstadoObra
 from app.models.visita import Visita, VisitaArchivo, TipoArchivoVisita
 from app.models.documento import Documento, CategoriaDocumento
-from app.models.perfil_empresa import PerfilEmpresa
+from app.models.empresa import Empresa
 from app.models.cita_visita import CitaVisita, EstadoCita
 from app.models.visita_potencial import VisitaPotencial, VisitaPotencialArchivo
 from app.models.invitacion import Invitacion, EstadoInvitacion
@@ -28,7 +28,7 @@ __all__ = [
     "TipoArchivoVisita",
     "Documento",
     "CategoriaDocumento",
-    "PerfilEmpresa",
+    "Empresa",
     "CitaVisita",
     "EstadoCita",
     "VisitaPotencial",

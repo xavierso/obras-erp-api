@@ -27,6 +27,7 @@ class Documento(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     obra_id: Mapped[int] = mapped_column(ForeignKey("obras.id"), nullable=False, index=True)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), nullable=False)
     categoria: Mapped[CategoriaDocumento] = mapped_column(
         SAEnum(CategoriaDocumento), nullable=False

@@ -22,7 +22,7 @@ EXTENSIONES_VIDEO = {".mp4", ".mov"}
 
 async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSession) -> Obra:
     result = await db.execute(
-        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id)
+        select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:

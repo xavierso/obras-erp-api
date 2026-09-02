@@ -1,12 +1,12 @@
 """
 Gestión documental por categorías. Restringido a admins — los inspectores
-no gestionan documentación, solo registran visitas (ver deps.require_director).
+no gestionan documentación, solo registran visitas (ver deps.require_director, get_empresa_id).
 """
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director, get_current_user
+from app.core.deps import require_director, get_empresa_id, get_current_user
 from app.database import get_db
 from app.models.documento import CategoriaDocumento, Documento
 from app.models.obra import Obra
@@ -17,10 +17,9 @@ from app.services.storage_service import ArchivoInvalido, guardar_archivo, url_p
 router = APIRouter(prefix="/obras/{obra_id}/documentos", tags=["Documentos"])
 
 
-async def _obtener_obra_de_la_empresa(obra_id: int, admin: Usuario, db: AsyncSession) -> Obra:
-    empresa_id = admin.id if admin.rol == RolUsuario.ADMIN else admin.admin_id
+async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSession) -> Obra:
     result = await db.execute(
-        select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id)
+        select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:
@@ -45,9 +44,10 @@ async def subir_documento(
     categoria: CategoriaDocumento = Form(...),
     archivo: UploadFile = File(...),
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
 
     try:
         subcarpeta = f"obras/{obra.id}/documentos/{categoria.value}"
@@ -73,9 +73,10 @@ async def listar_documentos(
     obra_id: int,
     categoria: CategoriaDocumento | None = None,
     usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    obra = await _obtener_obra_de_la_empresa(obra_id, usuario, db)
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     query = select(Documento).where(Documento.obra_id == obra.id)
     if categoria is not None:
         query = query.where(Documento.categoria == categoria)
@@ -88,9 +89,10 @@ async def eliminar_documento(
     obra_id: int,
     documento_id: int,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db)
 ):
-    obra = await _obtener_obra_de_la_empresa(obra_id, admin, db)
+    obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     result = await db.execute(
         select(Documento).where(Documento.id == documento_id, Documento.obra_id == obra.id)
     )

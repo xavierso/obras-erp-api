@@ -17,6 +17,7 @@ class Certificacion(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     presupuesto_id: Mapped[int] = mapped_column(ForeignKey("presupuestos.id"), nullable=False)
+    empresa_id: Mapped[int] = mapped_column(ForeignKey("empresas.id"), nullable=False, index=True)
     numero: Mapped[int] = mapped_column(Integer, nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
     estado: Mapped[EstadoCertificacion] = mapped_column(

@@ -37,18 +37,15 @@ async def obtener_eventos_calendario(
     eventos: List[EventoCalendarioOut] = []
 
     # Permisos: El usuario puede ver las obras de su empresa.
-    res = await db.execute(select(Obra.id).where(Obra.usuario_id == empresa_id))
-    obras_accesibles = [r[0] for r in res.all()]
-    if not obras_accesibles:
-        return []
+    
     
     # 1. TAREAS
     if not tipos or "tarea" in tipos:
-        q_tareas = select(Tarea).options(selectinload(Tarea.obra)).join(Obra, isouter=True)
+        q_tareas = select(Tarea).where(Tarea.empresa_id == empresa_id).options(selectinload(Tarea.obra)).join(Obra, isouter=True)
         if obra_id:
             q_tareas = q_tareas.where(Tarea.obra_id == obra_id)
-        elif obras_accesibles is not None:
-            q_tareas = q_tareas.where(Tarea.obra_id.in_(obras_accesibles))
+        else:
+            q_tareas = q_tareas.where(Tarea.empresa_id == empresa_id)
         
         if responsable_id:
             q_tareas = q_tareas.where(Tarea.responsable_id == responsable_id)
@@ -77,11 +74,11 @@ async def obtener_eventos_calendario(
 
     # 2. INCIDENCIAS
     if not tipos or "incidencia" in tipos:
-        q_incid = select(Incidencia).options(selectinload(Incidencia.obra)).join(Obra, isouter=True)
+        q_incid = select(Incidencia).where(Incidencia.empresa_id == empresa_id).options(selectinload(Incidencia.obra)).join(Obra, isouter=True)
         if obra_id:
             q_incid = q_incid.where(Incidencia.obra_id == obra_id)
-        elif obras_accesibles is not None:
-            q_incid = q_incid.where(Incidencia.obra_id.in_(obras_accesibles))
+        else:
+            q_incid = q_incid.where(Incidencia.empresa_id == empresa_id)
             
         if responsable_id:
             q_incid = q_incid.where(Incidencia.responsable_id == responsable_id)
@@ -109,11 +106,11 @@ async def obtener_eventos_calendario(
 
     # 3. VISITAS
     if not tipos or "visita" in tipos:
-        q_visitas = select(Visita).options(selectinload(Visita.obra)).join(Obra, isouter=True)
+        q_visitas = select(Visita).where(Visita.empresa_id == empresa_id).options(selectinload(Visita.obra)).join(Obra, isouter=True)
         if obra_id:
             q_visitas = q_visitas.where(Visita.obra_id == obra_id)
-        elif obras_accesibles is not None:
-            q_visitas = q_visitas.where(Visita.obra_id.in_(obras_accesibles))
+        else:
+            q_visitas = q_visitas.where(Visita.empresa_id == empresa_id)
             
         if responsable_id:
             q_visitas = q_visitas.where(Visita.usuario_id == responsable_id)
@@ -140,11 +137,11 @@ async def obtener_eventos_calendario(
 
     # 4. CITAS / REUNIONES PROGRAMADAS
     if not tipos or "reunion" in tipos:
-        q_citas = select(CitaVisita).options(selectinload(CitaVisita.obra)).join(Obra, isouter=True)
+        q_citas = select(CitaVisita).where(CitaVisita.empresa_id == empresa_id).options(selectinload(CitaVisita.obra)).join(Obra, isouter=True)
         if obra_id:
             q_citas = q_citas.where(CitaVisita.obra_id == obra_id)
-        elif obras_accesibles is not None:
-            q_citas = q_citas.where(CitaVisita.obra_id.in_(obras_accesibles))
+        else:
+            q_citas = q_citas.where(CitaVisita.empresa_id == empresa_id)
             
         if responsable_id:
             q_citas = q_citas.where(CitaVisita.usuario_id == responsable_id)
@@ -171,11 +168,11 @@ async def obtener_eventos_calendario(
             ))
 
     # 5. EVENTOS CUSTOM (Hitos, Entregas, etc.)
-    q_custom = select(EventoCalendario).options(selectinload(EventoCalendario.obra)).join(Obra, isouter=True)
+    q_custom = select(EventoCalendario).where(EventoCalendario.empresa_id == empresa_id).options(selectinload(EventoCalendario.obra)).join(Obra, isouter=True)
     if obra_id:
         q_custom = q_custom.where(EventoCalendario.obra_id == obra_id)
-    elif obras_accesibles is not None:
-        q_custom = q_custom.where(EventoCalendario.obra_id.in_(obras_accesibles))
+    else:
+        q_custom = q_custom.where(EventoCalendario.empresa_id == empresa_id)
         
     if responsable_id:
         q_custom = q_custom.where(EventoCalendario.responsable_id == responsable_id)
@@ -206,12 +203,12 @@ async def obtener_eventos_calendario(
     # 6. ACTIVIDADES DE CRONOGRAMA
     if not tipos or "cronograma" in tipos or "hito" in tipos:
         from app.models.actividad_cronograma import ActividadCronograma
-        q_crono = select(ActividadCronograma).options(selectinload(ActividadCronograma.obra)).join(Obra, isouter=True)
+        q_crono = select(ActividadCronograma).where(ActividadCronograma.empresa_id == empresa_id).options(selectinload(ActividadCronograma.obra)).join(Obra, isouter=True)
         
         if obra_id:
             q_crono = q_crono.where(ActividadCronograma.obra_id == obra_id)
-        elif obras_accesibles is not None:
-            q_crono = q_crono.where(ActividadCronograma.obra_id.in_(obras_accesibles))
+        else:
+            q_crono = q_crono.where(ActividadCronograma.empresa_id == empresa_id)
             
         if responsable_id:
             q_crono = q_crono.where(ActividadCronograma.responsable_id == responsable_id)
@@ -246,8 +243,14 @@ async def obtener_eventos_calendario(
 async def crear_evento_custom(
     evento: EventoCustomCreate,
     usuario_actual: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db)
 ):
+    if evento.obra_id:
+        obra = await db.get(Obra, evento.obra_id)
+        if not obra or obra.empresa_id != empresa_id:
+            raise HTTPException(404, "Obra no encontrada o no autorizada")
+            
     nuevo = EventoCalendario(
         tipo=TipoEventoCalendario(evento.tipo),
         titulo=evento.titulo,
@@ -255,6 +258,7 @@ async def crear_evento_custom(
         obra_id=evento.obra_id,
         responsable_id=evento.responsable_id,
         creador_id=usuario_actual.id,
+        empresa_id=empresa_id,
         fecha=evento.fecha,
         hora_inicio=evento.hora_inicio,
         hora_fin=evento.hora_fin

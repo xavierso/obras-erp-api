@@ -9,10 +9,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_director
+from app.core.deps import require_director, get_empresa_id
 from app.database import get_db
 from app.models.obra import Obra
-from app.models.perfil_empresa import PerfilEmpresa
+from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.models.visita import Visita
 from app.services.pdf_service import generar_informe_pdf
@@ -27,6 +27,7 @@ async def generar_informe(
     fecha_inicio: str | None = None,
     fecha_fin: str | None = None,
     admin: Usuario = Depends(require_director),
+    empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -39,7 +40,7 @@ async def generar_informe(
     result = await db.execute(
         select(Obra)
         .options(selectinload(Obra.presupuestos))
-        .where(Obra.id == obra_id, Obra.usuario_id == admin.id)
+        .where(Obra.id == obra_id, Obra.empresa_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:
@@ -68,14 +69,14 @@ async def generar_informe(
         await db.refresh(v, attribute_names=["archivos"])
 
     result = await db.execute(
-        select(PerfilEmpresa).where(PerfilEmpresa.usuario_id == admin.id)
+        select(Empresa).where(Empresa.id == empresa_id)
     )
     perfil = result.scalar_one_or_none()
 
     pdf_bytes = generar_informe_pdf(
         obra=obra,
         visitas=visitas,
-        nombre_empresa=perfil.nombre_empresa if perfil else None,
+        nombre_empresa=perfil.nombre if perfil else None,
         color_principal=perfil.color_principal if perfil else None,
         logo_ruta=perfil.logo_ruta if perfil else None
     )

@@ -20,7 +20,7 @@ def _query_incidencias(empresa_id: int):
     return (
         select(Incidencia)
         .join(Obra)
-        .where(Obra.usuario_id == empresa_id)
+        .where(Obra.empresa_id == empresa_id)
         .options(
             selectinload(Incidencia.responsable),
             selectinload(Incidencia.creador),
@@ -58,7 +58,7 @@ async def listar_incidencias(
     db: AsyncSession = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id))
+    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
@@ -81,7 +81,7 @@ async def generar_codigo_incidencia(db: AsyncSession, empresa_id: int) -> str:
     result = await db.execute(
         select(func.count(Incidencia.id))
         .join(Obra)
-        .where(Obra.usuario_id == empresa_id)
+        .where(Obra.empresa_id == empresa_id)
     )
     count = result.scalar_one()
     return f"INC-{count + 1:03d}"
@@ -103,7 +103,7 @@ async def crear_incidencia(
     usuario: Usuario = Depends(require_inspector_or_higher),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.usuario_id == empresa_id))
+    result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.empresa_id == empresa_id))
     obra = result.scalar_one_or_none()
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
@@ -279,7 +279,7 @@ async def eliminar_incidencia(
     usuario: Usuario = Depends(require_inspector_or_higher),
     empresa_id: int = Depends(get_empresa_id),
 ):
-    result = await db.execute(select(Incidencia).join(Obra).where(Incidencia.id == incidencia_id, Obra.usuario_id == empresa_id))
+    result = await db.execute(select(Incidencia).join(Obra).where(Incidencia.id == incidencia_id, Obra.empresa_id == empresa_id))
     incidencia = result.scalar_one_or_none()
     if not incidencia:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
