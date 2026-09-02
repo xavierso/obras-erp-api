@@ -15,7 +15,7 @@ from app.models.visita import Visita
 ESTADOS_NO_ACTIVOS = {EstadoObra.ENTREGADA, EstadoObra.ARCHIVADA}
 
 
-async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
+async def obtener_resumen_dashboard(empresa_id: int, db: AsyncSession) -> dict:
     ahora = datetime.now(timezone.utc)
     inicio_hoy = datetime.combine(ahora.date(), time.min, tzinfo=timezone.utc)
     fin_hoy = inicio_hoy + timedelta(days=1)
@@ -25,7 +25,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
     result = await db.execute(
         select(func.count())
         .select_from(Obra)
-        .where(Obra.usuario_id == usuario_id, Obra.estado.notin_(ESTADOS_NO_ACTIVOS))
+        .where(Obra.empresa_id == empresa_id, Obra.estado.notin_(ESTADOS_NO_ACTIVOS))
     )
     obras_activas = result.scalar_one()
 
@@ -36,7 +36,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
         .select_from(Visita)
         .join(Obra, Obra.id == Visita.obra_id)
         .where(
-            Obra.usuario_id == usuario_id,
+            Obra.empresa_id == empresa_id,
             Visita.fecha >= inicio_hoy,
             Visita.fecha < fin_hoy,
         )
@@ -47,7 +47,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
         select(func.count())
         .select_from(Visita)
         .join(Obra, Obra.id == Visita.obra_id)
-        .where(Obra.usuario_id == usuario_id, Visita.fecha >= inicio_semana)
+        .where(Obra.empresa_id == empresa_id, Visita.fecha >= inicio_semana)
     )
     visitas_semana = result.scalar_one()
 
@@ -55,7 +55,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
         select(func.count())
         .select_from(Documento)
         .join(Obra, Obra.id == Documento.obra_id)
-        .where(Obra.usuario_id == usuario_id, Documento.created_at >= inicio_semana)
+        .where(Obra.empresa_id == empresa_id, Documento.created_at >= inicio_semana)
     )
     documentos_nuevos_semana = result.scalar_one()
 
@@ -69,7 +69,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
         .select_from(ActividadCronograma)
         .join(Obra, Obra.id == ActividadCronograma.obra_id)
         .where(
-            Obra.usuario_id == usuario_id,
+            Obra.empresa_id == empresa_id,
             Obra.estado.notin_(ESTADOS_NO_ACTIVOS),
             ActividadCronograma.porcentaje_avance < 100,
             ActividadCronograma.estado_base != EstadoActividad.CANCELADA,
@@ -81,7 +81,7 @@ async def obtener_resumen_dashboard(usuario_id: int, db: AsyncSession) -> dict:
     # Obras avance
     result = await db.execute(
         select(Obra.id, Obra.nombre, Obra.progreso_porcentaje)
-        .where(Obra.usuario_id == usuario_id, Obra.estado.notin_(ESTADOS_NO_ACTIVOS))
+        .where(Obra.empresa_id == empresa_id, Obra.estado.notin_(ESTADOS_NO_ACTIVOS))
     )
     obras = result.all()
     obras_avance = [
