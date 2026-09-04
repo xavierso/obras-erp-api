@@ -117,6 +117,7 @@ async def crear_incidencia(
     nueva_incidencia = Incidencia(
         codigo=codigo,
         obra_id=obra_id,
+        empresa_id=empresa_id,
         visita_id=visita_id,
         creador_id=usuario.id,
         responsable_id=responsable_id,

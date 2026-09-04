@@ -111,6 +111,28 @@ class CapituloPresupuesto(Base):
         return f"<CapituloPresupuesto id={self.id} nombre={self.nombre}>"
 
 
+class LineaMedicion(Base):
+    __tablename__ = "lineas_medicion"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    comentario: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    unidades: Mapped[float] = mapped_column(Numeric(10, 2), default=1)
+    longitud: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    anchura: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    altura: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    
+    partida_id: Mapped[int] = mapped_column(ForeignKey("partidas_presupuesto.id", ondelete="CASCADE"), nullable=False)
+    partida: Mapped["PartidaPresupuesto"] = relationship(back_populates="lineas_medicion")
+
+    @property
+    def subtotal(self) -> float:
+        l = float(self.longitud) if self.longitud is not None else 1.0
+        w = float(self.anchura) if self.anchura is not None else 1.0
+        h = float(self.altura) if self.altura is not None else 1.0
+        u = float(self.unidades) if self.unidades is not None else 1.0
+        return u * l * w * h
+
+
 class PartidaPresupuesto(Base):
     __tablename__ = "partidas_presupuesto"
 
@@ -141,13 +163,23 @@ class PartidaPresupuesto(Base):
         back_populates="partida_presupuesto"
     )
 
+    lineas_medicion: Mapped[list["LineaMedicion"]] = relationship(
+        "LineaMedicion", back_populates="partida", cascade="all, delete-orphan"
+    )
+
+    @property
+    def cantidad_calculada(self) -> float:
+        if self.lineas_medicion:
+            return sum(linea.subtotal for linea in self.lineas_medicion)
+        return float(self.cantidad)
+
     @property
     def precio_con_descuento(self) -> float:
         return float(self.precio_unitario) * (1 - float(self.descuento_porcentaje or 0) / 100)
 
     @property
     def importe(self) -> float:
-        return float(self.cantidad) * self.precio_con_descuento
+        return self.cantidad_calculada * self.precio_con_descuento
 
     @property
     def coste_total(self) -> float:

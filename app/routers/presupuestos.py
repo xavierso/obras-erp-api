@@ -31,7 +31,7 @@ async def create_presupuesto(
     return await crear_presupuesto(db, data, usuario.id, empresa_id)
 
 from sqlalchemy.orm import selectinload
-from app.models.presupuesto import CapituloPresupuesto
+from app.models.presupuesto import CapituloPresupuesto, PartidaPresupuesto
 from app.models.obra import Obra
 
 @router.get("/", response_model=List[PresupuestoResumenOut])
@@ -41,7 +41,7 @@ async def list_todos_presupuestos(
     empresa_id: int = Depends(get_empresa_id)
 ):
     stmt = select(Presupuesto).where(Presupuesto.empresa_id == empresa_id).options(
-        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)
+        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion)
     ).order_by(Presupuesto.created_at.desc())
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -54,7 +54,7 @@ async def list_presupuestos_obra(
     empresa_id: int = Depends(get_empresa_id)
 ):
     stmt = select(Presupuesto).where(Presupuesto.obra_id == obra_id, Presupuesto.empresa_id == empresa_id).options(
-        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)
+        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion)
     ).order_by(Presupuesto.version.desc())
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -85,7 +85,7 @@ async def update_presupuesto(
     # Validar propiedad
     p = await get_presupuesto(db, presupuesto_id, empresa_id)
     if not p: raise HTTPException(404, "No encontrado")
-    return await actualizar_presupuesto(db, presupuesto_id, data)
+    return await actualizar_presupuesto(db, presupuesto_id, data, empresa_id)
 
 from app.schemas.presupuesto import PresupuestoAprobar, PresupuestoEstadoUpdate
 
@@ -152,7 +152,7 @@ async def add_capitulo(
 ):
     p = await get_presupuesto(db, presupuesto_id, empresa_id)
     if not p: raise HTTPException(404, "No encontrado")
-    return await crear_capitulo(db, presupuesto_id, data)
+    return await crear_capitulo(db, presupuesto_id, data, empresa_id)
 
 @router.delete("/capitulos/{capitulo_id}")
 async def delete_capitulo(
@@ -162,7 +162,7 @@ async def delete_capitulo(
     empresa_id: int = Depends(get_empresa_id)
 ):
     # TODO: validate that capitulo belongs to empresa
-    return await eliminar_capitulo(db, capitulo_id)
+    return await eliminar_capitulo(db, capitulo_id, empresa_id)
 
 
 @router.post("/capitulos/{capitulo_id}/partidas", response_model=PartidaPresupuestoOut)
@@ -174,7 +174,7 @@ async def add_partida(
     empresa_id: int = Depends(get_empresa_id)
 ):
     # TODO: validate that capitulo belongs to empresa
-    return await crear_partida(db, capitulo_id, data)
+    return await crear_partida(db, capitulo_id, data, empresa_id)
 
 @router.delete("/partidas/{partida_id}")
 async def delete_partida(
@@ -184,7 +184,7 @@ async def delete_partida(
     empresa_id: int = Depends(get_empresa_id)
 ):
     # TODO: validate that partida belongs to empresa
-    return await eliminar_partida(db, partida_id)
+    return await eliminar_partida(db, partida_id, empresa_id)
 
 @router.put("/partidas/{partida_id}", response_model=PartidaPresupuestoOut)
 async def update_partida_route(
@@ -194,4 +194,36 @@ async def update_partida_route(
     usuario: Usuario = Depends(get_current_user),
     empresa_id: int = Depends(get_empresa_id)
 ):
-    return await actualizar_partida(db, partida_id, data)
+    return await actualizar_partida(db, partida_id, data, empresa_id)
+
+from app.schemas.presupuesto import LineaMedicionCreate, LineaMedicionUpdate, LineaMedicionOut
+from app.services.presupuesto_service import crear_linea_medicion, actualizar_linea_medicion, eliminar_linea_medicion
+
+@router.post("/partidas/{partida_id}/lineas-medicion", response_model=LineaMedicionOut)
+async def add_medicion(
+    partida_id: int,
+    data: LineaMedicionCreate,
+    db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    return await crear_linea_medicion(db, partida_id, data, empresa_id)
+
+@router.put("/lineas-medicion/{medicion_id}", response_model=LineaMedicionOut)
+async def update_medicion(
+    medicion_id: int,
+    data: LineaMedicionUpdate,
+    db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    return await actualizar_linea_medicion(db, medicion_id, data, empresa_id)
+
+@router.delete("/lineas-medicion/{medicion_id}")
+async def delete_medicion(
+    medicion_id: int,
+    db: AsyncSession = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
+):
+    return await eliminar_linea_medicion(db, medicion_id, empresa_id)

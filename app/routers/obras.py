@@ -33,7 +33,7 @@ async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSe
 
 async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
     """Añade total_visitas y ultima_visita_fecha, y resumen económico, calculados aparte."""
-    from app.models.presupuesto import Presupuesto, CapituloPresupuesto
+    from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto
     from sqlalchemy.orm import selectinload
 
     result = await db.execute(
@@ -47,7 +47,7 @@ async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
     # Calcular resumen económico
     res_presup = await db.execute(
         select(Presupuesto)
-        .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas))
+        .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion))
         .where(Presupuesto.obra_id == obra.id, Presupuesto.es_version_activa == True)
     )
     presup = res_presup.scalar_one_or_none()

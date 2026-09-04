@@ -78,6 +78,7 @@ async def registrar_visita_potencial(
     archivos: list[UploadFile] = File(default=[]),
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
 
@@ -119,6 +120,7 @@ async def listar_visitas_potenciales(
     cita_id: int,
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     result = await db.execute(
@@ -140,6 +142,7 @@ async def generar_parte_de_trabajo(
     visita_potencial_id: int,
     admin: Usuario = Depends(require_director),
     db: AsyncSession = Depends(get_db),
+    empresa_id: int = Depends(get_empresa_id),
 ):
     cita = await _obtener_cita_de_la_empresa(cita_id, empresa_id, db)
     visita = await _obtener_visita_potencial_de_la_empresa(cita_id, visita_potencial_id, empresa_id, db)

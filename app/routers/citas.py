@@ -26,7 +26,7 @@ router = APIRouter(prefix="/citas", tags=["Citas y Recordatorios"])
 
 async def _obtener_cita_de_la_empresa(cita_id: int, empresa_id: int, db: AsyncSession) -> CitaVisita:
     result = await db.execute(
-        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.usuario_id == empresa_id)
+        select(CitaVisita).where(CitaVisita.id == cita_id, CitaVisita.empresa_id == empresa_id)
     )
     cita = result.scalar_one_or_none()
     if cita is None:
@@ -57,7 +57,8 @@ async def crear_cita(
     nueva_cita = CitaVisita(
         obra_id=datos.obra_id,
         nombre_referencia=datos.nombre_referencia,
-        usuario_id=empresa_id,
+        empresa_id=empresa_id,
+        usuario_id=admin.id,
         fecha_hora=datos.fecha_hora,
         notas=datos.notas,
         recordatorio_minutos_antes=datos.recordatorio_minutos_antes,
@@ -78,7 +79,7 @@ async def listar_citas(
     empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(CitaVisita).where(CitaVisita.usuario_id == empresa_id)
+    query = select(CitaVisita).where(CitaVisita.empresa_id == empresa_id)
     if estado is not None:
         query = query.where(CitaVisita.estado == estado)
     if desde is not None:

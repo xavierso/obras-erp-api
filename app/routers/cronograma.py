@@ -24,18 +24,19 @@ async def create_actividad(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    obra_result = await db.execute(select(Obra).where(Obra.id == actividad.obra_id))
+    obra_result = await db.execute(select(Obra).where(Obra.id == actividad.obra_id, Obra.empresa_id == current_user.empresa_id))
     obra = obra_result.scalar_one_or_none()
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
     data = actividad.model_dump()
     preds_ids = data.pop("predecesoras_ids", [])
+    data["empresa_id"] = current_user.empresa_id
     
     db_actividad = ActividadCronograma(**data)
     
     if preds_ids:
-        preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids)))
+        preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids), ActividadCronograma.empresa_id == current_user.empresa_id))
         db_actividad.predecesoras = list(preds_result.scalars().all())
 
     db.add(db_actividad)
@@ -60,10 +61,14 @@ async def get_actividades_por_obra(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    obra_result = await db.execute(select(Obra).where(Obra.id == obra_id, Obra.empresa_id == current_user.empresa_id))
+    if not obra_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Obra no encontrada")
+        
     result = await db.execute(
         select(ActividadCronograma)
         .options(selectinload(ActividadCronograma.predecesoras))
-        .where(ActividadCronograma.obra_id == obra_id)
+        .where(ActividadCronograma.obra_id == obra_id, ActividadCronograma.empresa_id == current_user.empresa_id)
         .order_by(ActividadCronograma.fecha_inicio)
     )
     actividades = result.scalars().all()
@@ -79,7 +84,7 @@ async def get_actividad(
     result = await db.execute(
         select(ActividadCronograma)
         .options(selectinload(ActividadCronograma.predecesoras))
-        .where(ActividadCronograma.id == actividad_id)
+        .where(ActividadCronograma.id == actividad_id, ActividadCronograma.empresa_id == current_user.empresa_id)
     )
     actividad = result.scalar_one_or_none()
     if not actividad:
@@ -97,7 +102,7 @@ async def update_actividad(
     result = await db.execute(
         select(ActividadCronograma)
         .options(selectinload(ActividadCronograma.predecesoras))
-        .where(ActividadCronograma.id == actividad_id)
+        .where(ActividadCronograma.id == actividad_id, ActividadCronograma.empresa_id == current_user.empresa_id)
     )
     actividad = result.scalar_one_or_none()
     if not actividad:
@@ -108,7 +113,7 @@ async def update_actividad(
     if "predecesoras_ids" in update_data:
         preds_ids = update_data.pop("predecesoras_ids")
         if preds_ids is not None:
-            preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids)))
+            preds_result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id.in_(preds_ids), ActividadCronograma.empresa_id == current_user.empresa_id))
             actividad.predecesoras = list(preds_result.scalars().all())
         else:
             actividad.predecesoras = []
@@ -137,7 +142,7 @@ async def delete_actividad(
     db: AsyncSession = Depends(get_db),
     director=Depends(require_director),
 ):
-    result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id == actividad_id))
+    result = await db.execute(select(ActividadCronograma).where(ActividadCronograma.id == actividad_id, ActividadCronograma.empresa_id == director.empresa_id))
     actividad = result.scalar_one_or_none()
     if not actividad:
         raise HTTPException(status_code=404, detail="Actividad no encontrada")

@@ -57,6 +57,7 @@ async def subir_documento(
 
     nuevo_documento = Documento(
         obra_id=obra.id,
+        empresa_id=obra.empresa_id,
         usuario_id=admin.id,
         categoria=categoria,
         nombre_original=nombre_original,

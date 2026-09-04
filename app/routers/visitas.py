@@ -59,7 +59,7 @@ async def registrar_visita(
 ):
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
 
-    nueva_visita = Visita(obra_id=obra.id, usuario_id=usuario.id, descripcion=descripcion)
+    nueva_visita = Visita(obra_id=obra.id, empresa_id=obra.empresa_id, usuario_id=usuario.id, descripcion=descripcion)
     db.add(nueva_visita)
     await db.flush()  # para obtener nueva_visita.id sin cerrar la transacción
 

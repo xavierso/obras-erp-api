@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_empresa_id
 from app.models.usuario import Usuario
 from app.models.certificacion import Certificacion
 from app.schemas.certificacion import (
@@ -22,11 +22,12 @@ router = APIRouter(tags=["Certificaciones"])
 async def list_certificaciones_presupuesto(
     presupuesto_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
     res = await db.execute(
         select(Certificacion)
-        .where(Certificacion.presupuesto_id == presupuesto_id)
+        .where(Certificacion.presupuesto_id == presupuesto_id, Certificacion.empresa_id == empresa_id)
         .order_by(Certificacion.numero.asc())
     )
     certificaciones = res.scalars().all()
@@ -46,17 +47,19 @@ async def create_cert(
     presupuesto_id: int,
     data: CertificacionCreate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    return await crear_certificacion(db, presupuesto_id, data)
+    return await crear_certificacion(db, presupuesto_id, data, empresa_id)
 
 @router.get("/certificaciones/{certificacion_id}", response_model=CertificacionOut)
 async def read_cert(
     certificacion_id: int,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    return await get_certificacion_con_detalles(db, certificacion_id)
+    return await get_certificacion_con_detalles(db, certificacion_id, empresa_id)
 
 
 @router.put("/certificaciones/{certificacion_id}/lineas", response_model=CertificacionOut)
@@ -64,9 +67,10 @@ async def update_lineas(
     certificacion_id: int,
     lineas: List[LineaCertificacionUpdate],
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    return await guardar_mediciones(db, certificacion_id, lineas)
+    return await guardar_mediciones(db, certificacion_id, lineas, empresa_id)
 
 
 @router.put("/certificaciones/{certificacion_id}/estado", response_model=CertificacionOut)
@@ -74,6 +78,7 @@ async def update_estado(
     certificacion_id: int,
     data: CertificacionEstadoUpdate,
     db: AsyncSession = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user)
+    usuario: Usuario = Depends(get_current_user),
+    empresa_id: int = Depends(get_empresa_id)
 ):
-    return await cambiar_estado(db, certificacion_id, data.estado)
+    return await cambiar_estado(db, certificacion_id, data.estado, empresa_id)

@@ -14,7 +14,7 @@ from openpyxl.drawing.image import Image as OpenpyxlImage
 from app.core.deps import require_director, get_current_user, get_empresa_id
 from app.database import get_db
 from app.models.obra import Obra
-from app.models.presupuesto import Presupuesto, CapituloPresupuesto
+from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto
 from app.models.incidencia import Incidencia
 from app.models.tarea import Tarea
 from app.models.usuario import Usuario
@@ -23,35 +23,121 @@ from app.models.empresa import Empresa
 
 router = APIRouter(prefix="/exportar", tags=["Exportación"])
 
-def apply_header_style(cell, color_principal: str = None):
-    # DIAM Style Header
-    fill_color = "151513" # Dark Gray
-    text_color = "C8B89C" # Gold Accent
+def draw_excel_dashboard_header(ws, title: str, perfil: Empresa, kpi_data: dict):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     
-    cell.fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-    cell.font = Font(color=text_color, bold=True, name="Montserrat", size=10)
-    cell.alignment = Alignment(horizontal="center", vertical="center")
+    BG_MAIN = "1A202C"      # Fondo muy oscuro
+    BG_CARD = "2D3748"      # Gris oscuro para tarjetas
+    ACCENT = "0D9488"       # Teal / Cyan para el acento
+    TEXT_MAIN = "F8FAFC"
+    TEXT_MUTED = "94A3B8"
     
-    border_color = "8A8975"
-    thin = Side(border_style="thin", color=border_color)
-    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+    font_family = "Segoe UI"
+    
+    fill_bg = PatternFill(start_color=BG_MAIN, end_color=BG_MAIN, fill_type="solid")
+    fill_card = PatternFill(start_color=BG_CARD, end_color=BG_CARD, fill_type="solid")
+    
+    ws.sheet_view.showGridLines = False
+    
+    # Fondo global
+    for r in range(1, 150):
+        for c in range(1, 15):
+            ws.cell(row=r, column=c).fill = fill_bg
 
-def insert_company_header(ws, title: str, perfil: Empresa):
-    ws.merge_cells('A1:D1')
-    ws['A1'] = (perfil.nombre if perfil else "DIAM - GESTIÓN DE OBRAS").upper()
-    ws['A1'].font = Font(size=14, bold=True, name="Space Grotesk", color="151513")
-    ws['A1'].alignment = Alignment(horizontal="left", vertical="center")
+    # --- ROW 1: Título Principal ---
+    ws.cell(row=1, column=2, value="DIAM GESTIÓN").font = Font(name=font_family, size=22, bold=True, color=TEXT_MAIN)
+    ws.cell(row=1, column=4, value="DE OBRAS").font = Font(name=font_family, size=22, bold=True, color=ACCENT)
     
-    ws.merge_cells('A2:D2')
-    ws['A2'] = title.upper()
-    ws['A2'].font = Font(size=11, italic=False, name="Montserrat", color="8A8975", bold=True)
+    # --- ROW 3: Logo / Proyecto y Tabs ---
+    ws.cell(row=3, column=2, value="Empresa").font = Font(name=font_family, size=9, color=TEXT_MUTED)
+    ws.cell(row=4, column=2, value=perfil.nombre if perfil else "DIAM ERP").font = Font(name=font_family, size=11, color=TEXT_MAIN)
     
-    # Add a visual separator line
-    for col in range(1, 8):
-        cell = ws.cell(row=3, column=col)
-        cell.border = Border(bottom=Side(border_style="medium", color="C8B89C"))
+    tabs = ["Presupuestos", "Obras", "Incidencias", "Tareas", "Personal"]
+    col_idx = 4
+    for tab in tabs:
+        c = ws.cell(row=3, column=col_idx, value=tab.upper())
+        c.font = Font(name=font_family, size=11, color=TEXT_MAIN if tab == title else TEXT_MUTED)
+        if tab == title:
+            c.fill = PatternFill(start_color=ACCENT, end_color=ACCENT, fill_type="solid")
+            c.font = Font(name=font_family, size=11, bold=True, color="FFFFFF")
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        ws.merge_cells(start_row=3, start_column=col_idx, end_row=4, end_column=col_idx)
+        col_idx += 1
         
-    return 5
+    # --- ROW 6-8: Tarjetas KPI ---
+    # Box 1: Obras
+    for r in range(6, 9):
+        for c in range(2, 4):
+            ws.cell(row=r, column=c).fill = fill_card
+    ws.cell(row=6, column=2, value="OBRAS ACTIVAS").font = Font(name=font_family, size=10, color=TEXT_MUTED)
+    ws.cell(row=7, column=2, value=kpi_data.get('obras_activas', 0)).font = Font(name=font_family, size=20, bold=True, color=ACCENT)
+    ws.cell(row=7, column=2).alignment = Alignment(vertical="center")
+    
+    # Box 2: Presupuesto
+    for r in range(6, 9):
+        for c in range(4, 6):
+            ws.cell(row=r, column=c).fill = fill_card
+    ws.cell(row=6, column=4, value="PRESUPUESTADO TOTAL").font = Font(name=font_family, size=10, color=TEXT_MUTED)
+    
+    val_total = kpi_data.get('presupuesto_total', 0)
+    c_monto = ws.cell(row=7, column=4, value=val_total)
+    c_monto.font = Font(name=font_family, size=20, bold=True, color=TEXT_MAIN)
+    c_monto.number_format = '#,##0.00 €'
+    c_monto.alignment = Alignment(vertical="center")
+    
+    # Box 3: Incidencias
+    for r in range(6, 9):
+        for c in range(6, 8):
+            ws.cell(row=r, column=c).fill = fill_card
+    ws.cell(row=6, column=6, value="INCIDENCIAS ABIERTAS").font = Font(name=font_family, size=10, color=TEXT_MUTED)
+    ws.cell(row=7, column=6, value=kpi_data.get('incidencias_abiertas', 0)).font = Font(name=font_family, size=18, bold=True, color="EF4444")
+    ws.cell(row=7, column=6).alignment = Alignment(vertical="center")
+    
+    # Box 4: Equipo
+    for r in range(6, 9):
+        for c in range(8, 10):
+            ws.cell(row=r, column=c).fill = fill_card
+    ws.cell(row=6, column=8, value="EQUIPO EN CAMPO").font = Font(name=font_family, size=10, color=TEXT_MUTED)
+    ws.cell(row=7, column=8, value=kpi_data.get('equipo', 0)).font = Font(name=font_family, size=18, bold=True, color="10B981")
+    ws.cell(row=7, column=8).alignment = Alignment(vertical="center")
+    
+    # --- ROW 10: Barra de Título de la tabla ---
+    ws.cell(row=10, column=2, value=f"RESUMEN DE {title.upper()}").font = Font(name=font_family, size=11, bold=True, color="FFFFFF")
+    teal_fill = PatternFill(start_color=ACCENT, end_color=ACCENT, fill_type="solid")
+    for c in range(2, 10):
+        ws.cell(row=10, column=c).fill = teal_fill
+
+    return 11
+
+def apply_table_header(cell):
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    cell.fill = PatternFill(start_color="0D9488", end_color="0D9488", fill_type="solid") # Teal header
+    cell.font = Font(color="FFFFFF", bold=True, name="Segoe UI", size=11)
+    cell.alignment = Alignment(horizontal="left", vertical="center")
+    cell.border = Border(bottom=Side(style="medium", color="0F766E"))
+
+def apply_badge(cell, estado: str):
+    from openpyxl.styles import Font, PatternFill, Alignment
+    estado = (estado or "").upper()
+    font_family = "Segoe UI"
+    
+    if estado in ["EN_EJECUCION", "ACTIVO"]:
+        cell.fill = PatternFill(start_color="0EA5E9", end_color="0EA5E9", fill_type="solid") 
+        cell.font = Font(name=font_family, color="FFFFFF", bold=True, size=9)
+    elif estado in ["PENDIENTE", "PENDIENTE_APROBACION", "BORRADOR", "EN_ESTUDIO", "ENVIADO"]:
+        cell.fill = PatternFill(start_color="EAB308", end_color="EAB308", fill_type="solid") 
+        cell.font = Font(name=font_family, color="000000", bold=True, size=9)
+    elif estado in ["INCIDENCIA", "BLOQUEADO", "CANCELADO"]:
+        cell.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid") 
+        cell.font = Font(name=font_family, color="FFFFFF", bold=True, size=9)
+    elif estado in ["COMPLETADO", "FINALIZADO", "APROBADO", "RESUELTA"]:
+        cell.fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid") 
+        cell.font = Font(name=font_family, color="FFFFFF", bold=True, size=9)
+    else:
+        cell.fill = PatternFill(start_color="3B82F6", end_color="3B82F6", fill_type="solid") 
+        cell.font = Font(name=font_family, color="FFFFFF", bold=True, size=9)
+        
+    cell.alignment = Alignment(horizontal="center", vertical="center")
 
 @router.get("/excel")
 async def export_to_excel(
@@ -61,147 +147,208 @@ async def export_to_excel(
 ):
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     perfil = result.scalar_one_or_none()
-    color_principal = perfil.color_principal if perfil else "#1E3A5F"
+
+    # Pre-calculate KPIs
+    res_obras = await db.execute(select(Obra).where(Obra.empresa_id == empresa_id))
+    obras = res_obras.scalars().all()
+    obras_activas = sum(1 for o in obras if o.estado and o.estado.value not in ["cancelado", "finalizado"])
+    
+    res_pres = await db.execute(
+        select(Presupuesto).options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)).where(Presupuesto.empresa_id == empresa_id)
+    )
+    presupuestos = res_pres.scalars().all()
+    presupuesto_total = sum(p.total or 0 for p in presupuestos)
+    
+    res_inc = await db.execute(select(Incidencia).options(selectinload(Incidencia.obra)).where(Incidencia.empresa_id == empresa_id))
+    incidencias = res_inc.scalars().all()
+    incidencias_abiertas = sum(1 for i in incidencias if i.estado and i.estado.value not in ["resuelta"])
+    
+    res_usu = await db.execute(select(Usuario).where(Usuario.empresa_id == empresa_id))
+    equipo_count = len(res_usu.scalars().all())
+    
+    kpi_data = {
+        "obras_activas": obras_activas,
+        "presupuesto_total": presupuesto_total,
+        "incidencias_abiertas": incidencias_abiertas,
+        "equipo": equipo_count
+    }
 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     
+    BG_MAIN = "1A202C"
+    BG_CARD = "2D3748"
+    TEXT_MAIN = "F8FAFC"
+    
+    def style_row(ws, row_idx, max_col, is_even):
+        bg = BG_CARD if is_even else "232B38"
+        from openpyxl.styles import PatternFill, Font, Border, Side
+        fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
+        for c in range(2, max_col + 1):
+            cell = ws.cell(row=row_idx, column=c)
+            
+            # Identify if it's a badge by checking if it already has a non-default fill
+            is_badge = False
+            if cell.fill and cell.fill.start_color and type(cell.fill.start_color.rgb) == str:
+                if cell.fill.start_color.rgb not in ["00000000", bg, "232B38", "2D3748", BG_MAIN, BG_CARD]:
+                    is_badge = True
+            
+            if not is_badge:
+                cell.fill = fill
+                # Apply explicit colors based on column type
+                # The code column is column 2 usually, let's just check the existing font color
+                if cell.font and cell.font.color and getattr(cell.font.color, 'rgb', None) in ["FF94A3B8", "0094A3B8", "94A3B8"]:
+                    cell.font = Font(name="Consolas", size=10, color="94A3B8")
+                else:
+                    # Force white text for standard cells
+                    cell.font = Font(name="Segoe UI", size=10, color="FFFFFF")
+                    
+            cell.border = Border(bottom=Side(style="thin", color="1A202C"), right=Side(style="thin", color="1A202C"))
+
     # 1. Presupuestos
     ws_pres = wb.create_sheet(title="Presupuestos")
-    start_row = insert_company_header(ws_pres, "Listado de Presupuestos", perfil)
+    start_row = draw_excel_dashboard_header(ws_pres, "Presupuestos", perfil, kpi_data)
     
-    headers = ["Código", "Nombre", "Monto", "Estado"]
-    for col, h in enumerate(headers, 1):
+    headers = ["CÓDIGO", "NOMBRE", "ESTADO", "MONTO"]
+    for col, h in enumerate(headers, 2):
         cell = ws_pres.cell(row=start_row, column=col, value=h)
-        apply_header_style(cell, color_principal)
+        apply_table_header(cell)
         
-    result_pres = await db.execute(
-        select(Presupuesto).options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)).where(Presupuesto.empresa_id == empresa_id)
-    )
-    presupuestos = result_pres.scalars().all()
-    
     for i, p in enumerate(presupuestos, start=start_row + 1):
-        ws_pres.cell(row=i, column=1, value=p.codigo or "")
-        ws_pres.cell(row=i, column=2, value=p.nombre)
-        cell_monto = ws_pres.cell(row=i, column=3, value=p.total)
-        cell_monto.number_format = '#,##0.00 €'
-        ws_pres.cell(row=i, column=4, value=p.estado.value.upper() if p.estado else "")
-    
+        ws_pres.cell(row=i, column=2, value=p.codigo or "").font = Font(name="Consolas", color="94A3B8")
+        ws_pres.cell(row=i, column=3, value=p.nombre)
+        
+        c_estado = ws_pres.cell(row=i, column=4, value=p.estado.value.upper() if p.estado else "")
+        apply_badge(c_estado, p.estado.value if p.estado else "")
+        
+        c_monto = ws_pres.cell(row=i, column=5, value=p.total)
+        c_monto.number_format = '#,##0.00 €'
+        c_monto.alignment = Alignment(horizontal="right")
+        
+        style_row(ws_pres, i, 5, is_even=(i%2==0))
+        
     # 2. Obras
     ws_obras = wb.create_sheet(title="Obras")
-    start_row = insert_company_header(ws_obras, "Listado de Obras", perfil)
+    start_row = draw_excel_dashboard_header(ws_obras, "Obras", perfil, kpi_data)
     
-    headers_obras = ["Código", "Nombre", "Cliente", "Estado"]
-    for col, h in enumerate(headers_obras, 1):
+    headers_obras = ["CÓDIGO", "NOMBRE", "CLIENTE", "ESTADO"]
+    for col, h in enumerate(headers_obras, 2):
         cell = ws_obras.cell(row=start_row, column=col, value=h)
-        apply_header_style(cell, color_principal)
+        apply_table_header(cell)
         
-    result_obras = await db.execute(select(Obra).where(Obra.empresa_id == empresa_id))
-    obras = result_obras.scalars().all()
-    
     for i, o in enumerate(obras, start=start_row + 1):
-        ws_obras.cell(row=i, column=1, value=o.codigo)
-        ws_obras.cell(row=i, column=2, value=o.nombre)
-        ws_obras.cell(row=i, column=3, value=o.cliente or "")
-        ws_obras.cell(row=i, column=4, value=o.estado.value.upper() if o.estado else "")
+        ws_obras.cell(row=i, column=2, value=o.codigo).font = Font(name="Consolas", color="94A3B8")
+        ws_obras.cell(row=i, column=3, value=o.nombre)
+        ws_obras.cell(row=i, column=4, value=o.cliente or "")
+        c_estado = ws_obras.cell(row=i, column=5, value=o.estado.value.upper() if o.estado else "")
+        apply_badge(c_estado, o.estado.value if o.estado else "")
+        style_row(ws_obras, i, 5, is_even=(i%2==0))
 
     # 3. Incidencias
     ws_inc = wb.create_sheet(title="Incidencias")
-    start_row = insert_company_header(ws_inc, "Listado de Incidencias", perfil)
+    start_row = draw_excel_dashboard_header(ws_inc, "Incidencias", perfil, kpi_data)
     
-    headers_inc = ["Código", "Título", "Obra", "Estado"]
-    for col, h in enumerate(headers_inc, 1):
+    headers_inc = ["CÓDIGO", "TÍTULO", "OBRA", "ESTADO"]
+    for col, h in enumerate(headers_inc, 2):
         cell = ws_inc.cell(row=start_row, column=col, value=h)
-        apply_header_style(cell, color_principal)
+        apply_table_header(cell)
         
-    result_inc = await db.execute(select(Incidencia).options(selectinload(Incidencia.obra)).where(Incidencia.empresa_id == empresa_id))
-    incidencias = result_inc.scalars().all()
-    
     for i, inc in enumerate(incidencias, start=start_row + 1):
-        ws_inc.cell(row=i, column=1, value=inc.codigo)
-        ws_inc.cell(row=i, column=2, value=inc.titulo)
-        ws_inc.cell(row=i, column=3, value=inc.obra.nombre if inc.obra else "")
-        ws_inc.cell(row=i, column=4, value=inc.estado.value.upper() if inc.estado else "")
+        ws_inc.cell(row=i, column=2, value=inc.codigo).font = Font(name="Consolas", color="94A3B8")
+        ws_inc.cell(row=i, column=3, value=inc.titulo)
+        ws_inc.cell(row=i, column=4, value=inc.obra.nombre if inc.obra else "")
+        c_estado = ws_inc.cell(row=i, column=5, value=inc.estado.value.upper() if inc.estado else "")
+        apply_badge(c_estado, inc.estado.value if inc.estado else "")
+        style_row(ws_inc, i, 5, is_even=(i%2==0))
 
     # 4. Tareas
     ws_tar = wb.create_sheet(title="Tareas")
-    start_row = insert_company_header(ws_tar, "Listado de Tareas", perfil)
+    start_row = draw_excel_dashboard_header(ws_tar, "Tareas", perfil, kpi_data)
     
-    headers_tar = ["Título", "Obra", "Fecha Límite", "Estado"]
-    for col, h in enumerate(headers_tar, 1):
+    res_tar = await db.execute(select(Tarea).options(selectinload(Tarea.obra)).where(Tarea.empresa_id == empresa_id))
+    tareas = res_tar.scalars().all()
+    
+    headers_tar = ["TÍTULO", "OBRA", "FECHA LÍMITE", "ESTADO"]
+    for col, h in enumerate(headers_tar, 2):
         cell = ws_tar.cell(row=start_row, column=col, value=h)
-        apply_header_style(cell, color_principal)
+        apply_table_header(cell)
         
-    result_tar = await db.execute(select(Tarea).options(selectinload(Tarea.obra)).where(Tarea.empresa_id == empresa_id))
-    tareas = result_tar.scalars().all()
-    
     for i, tar in enumerate(tareas, start=start_row + 1):
-        ws_tar.cell(row=i, column=1, value=tar.titulo)
-        ws_tar.cell(row=i, column=2, value=tar.obra.nombre if tar.obra else "")
-        ws_tar.cell(row=i, column=3, value=tar.fecha_limite.strftime("%Y-%m-%d") if tar.fecha_limite else "")
-        ws_tar.cell(row=i, column=4, value=tar.estado.value.upper() if tar.estado else "")
+        ws_tar.cell(row=i, column=2, value=tar.titulo)
+        ws_tar.cell(row=i, column=3, value=tar.obra.nombre if tar.obra else "")
+        ws_tar.cell(row=i, column=4, value=tar.fecha_limite.strftime("%Y-%m-%d") if tar.fecha_limite else "")
+        c_estado = ws_tar.cell(row=i, column=5, value=tar.estado.value.upper() if tar.estado else "")
+        apply_badge(c_estado, tar.estado.value if tar.estado else "")
+        style_row(ws_tar, i, 5, is_even=(i%2==0))
 
     # 5. Personal
     ws_pers = wb.create_sheet(title="Personal")
-    start_row = insert_company_header(ws_pers, "Listado de Personal", perfil)
+    start_row = draw_excel_dashboard_header(ws_pers, "Personal", perfil, kpi_data)
     
-    headers_pers = ["Nombre / Email", "Rol", "Estado"]
-    for col, h in enumerate(headers_pers, 1):
+    headers_pers = ["NOMBRE / EMAIL", "ROL", "ESTADO"]
+    for col, h in enumerate(headers_pers, 2):
         cell = ws_pers.cell(row=start_row, column=col, value=h)
-        apply_header_style(cell, color_principal)
+        apply_table_header(cell)
         
-    result_act = await db.execute(
-        select(Usuario).where(Usuario.empresa_id == empresa_id)
-    )
-    activos = result_act.scalars().all()
+    res_act = await db.execute(select(Usuario).where(Usuario.empresa_id == empresa_id))
+    activos = res_act.scalars().all()
     
     row_idx = start_row + 1
     for u in activos:
-        ws_pers.cell(row=row_idx, column=1, value=u.nombre)
-        ws_pers.cell(row=row_idx, column=2, value=u.rol.value)
-        ws_pers.cell(row=row_idx, column=3, value="ACTIVO")
+        ws_pers.cell(row=row_idx, column=2, value=u.nombre)
+        c_rol = ws_pers.cell(row=row_idx, column=3, value=u.rol.value.upper())
+        apply_badge(c_rol, "ROLES")
+        c_estado = ws_pers.cell(row=row_idx, column=4, value="ACTIVO")
+        apply_badge(c_estado, "ACTIVO")
+        style_row(ws_pers, row_idx, 4, is_even=(row_idx%2==0))
         row_idx += 1
         
-    result_pend = await db.execute(
-        select(Invitacion).where(
-            Invitacion.empresa_id == empresa_id,
-            Invitacion.estado == EstadoInvitacion.PENDIENTE
-        )
-    )
-    pendientes = result_pend.scalars().all()
-    
+    res_pend = await db.execute(select(Invitacion).where(Invitacion.empresa_id == empresa_id, Invitacion.estado == EstadoInvitacion.PENDIENTE))
+    pendientes = res_pend.scalars().all()
     for p in pendientes:
-        ws_pers.cell(row=row_idx, column=1, value=p.email)
-        ws_pers.cell(row=row_idx, column=2, value=p.rol.value if p.rol else "")
-        ws_pers.cell(row=row_idx, column=3, value="PENDIENTE")
+        ws_pers.cell(row=row_idx, column=2, value=p.email)
+        c_rol = ws_pers.cell(row=row_idx, column=3, value=(p.rol.value.upper() if p.rol else ""))
+        apply_badge(c_rol, "ROLES")
+        c_estado = ws_pers.cell(row=row_idx, column=4, value="PENDIENTE")
+        apply_badge(c_estado, "PENDIENTE")
+        style_row(ws_pers, row_idx, 4, is_even=(row_idx%2==0))
         row_idx += 1
 
+    # Adjust widths for all sheets and FORCE font color
     for ws in wb.worksheets:
-        for col in ws.columns:
-            max_length = 0
-            column = openpyxl.utils.get_column_letter(col[0].column)
-            for cell in col:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column].width = min(adjusted_width, 40)
-            
-    if perfil and perfil.logo_ruta and os.path.exists(perfil.logo_ruta):
-        for ws in wb.worksheets:
-            try:
-                # We need PIL to get image dimensions properly if possible, but OpenpyxlImage does it.
-                img = OpenpyxlImage(perfil.logo_ruta)
-                # Max height 60
-                ratio = 60 / img.height if img.height > 0 else 1
-                img.height = int(img.height * ratio)
-                img.width = int(img.width * ratio)
-                ws.add_image(img, 'E1')
-            except Exception:
-                pass
+        ws.column_dimensions['A'].width = 3
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 40
+        ws.column_dimensions['D'].width = 30
+        ws.column_dimensions['E'].width = 25
+        ws.column_dimensions['F'].width = 20
+        ws.column_dimensions['G'].width = 15
+        ws.column_dimensions['H'].width = 15
+        ws.column_dimensions['I'].width = 15
+        ws.column_dimensions['J'].width = 15
+        
+        # BRUTE FORCE FONT COLOR
+        # Any row >= 11 is data
+        for row in ws.iter_rows(min_row=11, max_row=ws.max_row, min_col=2, max_col=10):
+            for cell in row:
+                if cell.value is not None:
+                    is_badge = False
+                    if cell.fill and cell.fill.start_color and type(cell.fill.start_color.rgb) == str:
+                        rgb_val = cell.fill.start_color.rgb
+                        # Remove '00' alpha prefix if present
+                        if len(rgb_val) == 8 and rgb_val.startswith("00"):
+                            rgb_val = rgb_val[2:]
+                        if rgb_val not in ["000000", "232B38", "2D3748", "1A202C"]:
+                            is_badge = True
+                    
+                    if not is_badge:
+                        if cell.column == 2: # Code
+                            cell.font = Font(name="Consolas", size=10, color="94A3B8")
+                        else:
+                            cell.font = Font(name="Segoe UI", size=10, color="FFFFFF")
 
+    import io
+    from fastapi.responses import StreamingResponse
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -223,225 +370,151 @@ async def export_single_presupuesto(
     db: AsyncSession = Depends(get_db),
     empresa_id: int = Depends(get_empresa_id)
 ):
-    # Fetch Presupuesto with chapters and items
     result = await db.execute(
         select(Presupuesto)
-        .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas))
+        .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion))
         .where(Presupuesto.id == presupuesto_id, Presupuesto.empresa_id == empresa_id)
     )
     presupuesto = result.scalar_one_or_none()
     if not presupuesto:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado o no autorizado")
         
-    result_perfil = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
-    perfil = result_perfil.scalar_one_or_none()
-    
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Presupuesto"
-    
-    # Turn off gridlines
     ws.sheet_view.showGridLines = False
     
-    # Colors
-    bg_dark = "151513"
-    gold = "C8B89C"
-    white = "FFFFFF"
-    gray = "8A8975"
-    light_bg = "E8EBF2" # Very light blue/gray as in image
-    blue_text = "0F427E" # Like the reference image for values
+    font_title = Font(name="Calibri", size=16, bold=True, color="1F2937")
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_bold = Font(name="Calibri", size=11, bold=True, color="1F2937")
+    font_normal = Font(name="Calibri", size=11, color="374151")
+    font_medicion = Font(name="Calibri", size=10, color="6B7280", italic=True)
     
-    # 1. Top Header (Rows 1-4)
-    fill_dark = PatternFill(start_color=bg_dark, end_color=bg_dark, fill_type="solid")
-    for row in range(1, 5):
-        for col in range(1, 9):
-            ws.cell(row=row, column=col).fill = fill_dark
-            
-    ws.cell(row=2, column=2, value="PRESUPUESTO").font = Font(color=white, size=18, bold=True, name="Arial")
-    ws.cell(row=3, column=2, value=perfil.nombre if perfil else "DIAM - Empresa").font = Font(color=gold, size=12, bold=True, name="Arial")
+    fill_header = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+    fill_capitulo = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+    fill_subtotal = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
     
-    dir_str = perfil.direccion if perfil and perfil.direccion else "Dirección no especificada"
-    ws.cell(row=4, column=2, value=dir_str).font = Font(color=gray, size=9, name="Arial")
+    border_bottom = Border(bottom=Side(style="thin", color="D1D5DB"))
+    border_top = Border(top=Side(style="thin", color="9CA3AF"))
     
-    ws.cell(row=2, column=6, value="Presupuesto #:").font = Font(color=gray, size=9, name="Arial")
-    ws.cell(row=2, column=7, value=presupuesto.codigo or f"PRE-{presupuesto.id}").font = Font(color=gold, size=9, bold=True, name="Arial")
-    ws.cell(row=2, column=7).alignment = Alignment(horizontal="right")
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 60
+    ws.column_dimensions['C'].width = 25
+    ws.column_dimensions['D'].width = 10
+    ws.column_dimensions['E'].width = 12
+    ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 18
     
-    from datetime import datetime, timedelta
-    ws.cell(row=3, column=6, value="Fecha:").font = Font(color=gray, size=9, name="Arial")
-    ws.cell(row=3, column=7, value=datetime.now().strftime("%d/%m/%Y")).font = Font(color=gold, size=9, bold=True, name="Arial")
-    ws.cell(row=3, column=7).alignment = Alignment(horizontal="right")
+    ws.merge_cells("A1:G1")
+    ws.cell(row=1, column=1, value=f"PRESUPUESTO: {presupuesto.nombre.upper()}").font = font_title
     
-    ws.cell(row=4, column=6, value="Válido hasta:").font = Font(color=gray, size=9, name="Arial")
-    valid_until = (datetime.now() + timedelta(days=30)).strftime("%d/%m/%Y")
-    ws.cell(row=4, column=7, value=valid_until).font = Font(color=gold, size=9, bold=True, name="Arial")
-    ws.cell(row=4, column=7).alignment = Alignment(horizontal="right")
+    current_row = 5
     
-    # 2. Client and Project Info
-    border_gold_bottom = Border(bottom=Side(border_style="medium", color=gold))
-    
-    ws.cell(row=6, column=2, value="PREPARADO PARA").font = Font(color=gray, size=10, bold=True, name="Arial")
-    ws.cell(row=6, column=2).border = border_gold_bottom
-    ws.cell(row=6, column=3).border = border_gold_bottom
-    ws.cell(row=6, column=4).border = border_gold_bottom
-    
-    ws.cell(row=6, column=6, value="DETALLES DEL PROYECTO").font = Font(color=gray, size=10, bold=True, name="Arial")
-    ws.cell(row=6, column=6).border = border_gold_bottom
-    ws.cell(row=6, column=7).border = border_gold_bottom
-    
-    # Client
-    ws.cell(row=7, column=2, value="Cliente:").font = Font(bold=True, size=9, name="Arial")
-    ws.cell(row=7, column=3, value=presupuesto.cliente_nombre or "No especificado").font = Font(color=blue_text, size=9, name="Arial")
-    
-    ws.cell(row=8, column=2, value="Dirección:").font = Font(bold=True, size=9, name="Arial")
-    ws.cell(row=8, column=3, value=presupuesto.direccion or "No especificada").font = Font(color=blue_text, size=9, name="Arial")
-    
-    # Project
-    ws.cell(row=7, column=6, value="Proyecto:").font = Font(bold=True, size=9, name="Arial")
-    ws.cell(row=7, column=7, value=presupuesto.nombre).font = Font(color=blue_text, size=9, name="Arial")
-    
-    # 3. Table Header
-    current_row = 11
-    headers = ["#", "Descripción", "Unidad", "Cantidad", "Precio Unitario", "Desc. %", "Importe"]
-    
-    for col, h in enumerate(headers, 1):
-        c = ws.cell(row=current_row, column=col, value=h)
-        c.fill = PatternFill(start_color="334D7A", end_color="334D7A", fill_type="solid") # Dark blue like image
-        c.font = Font(color=white, bold=True, name="Arial", size=10)
-        c.alignment = Alignment(horizontal="center", vertical="center")
-        c.border = Border(left=Side(style='thin', color=white), right=Side(style='thin', color=white))
+    headers = ["CÓDIGO", "DESCRIPCIÓN", "LÍNEAS", "UDS", "CANTIDAD", "PRECIO", "TOTAL"]
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=current_row, column=col_idx, value=h)
+        c.font = font_header
+        c.fill = fill_header
         
     current_row += 1
     
-    # 4. Table Body
-    fill_light = PatternFill(start_color=light_bg, end_color=light_bg, fill_type="solid")
-    font_bold = Font(bold=True, name="Arial", size=9, color="334D7A") # Dark blue bold for chapter titles
-    font_normal = Font(name="Arial", size=9, color="000000")
-    font_blue = Font(name="Arial", size=9, color=blue_text)
-    
-    border_thin = Border(
-        left=Side(style='thin', color="D3D3D3"),
-        right=Side(style='thin', color="D3D3D3"),
-        bottom=Side(style='thin', color="D3D3D3"),
-        top=Side(style='thin', color="D3D3D3")
-    )
-    
-    for cap_idx, cap in enumerate(presupuesto.capitulos, 1):
-        # Chapter
-        for col in range(1, 8):
-            c = ws.cell(row=current_row, column=col)
-            c.fill = fill_light
-            c.border = border_thin
-            
-        ws.cell(row=current_row, column=2, value=cap.nombre.upper()).font = font_bold
-        ws.cell(row=current_row, column=2).alignment = Alignment(horizontal="left")
+    for capitulo in presupuesto.capitulos:
+        ws.merge_cells(f"B{current_row}:G{current_row}")
+        c_cod = ws.cell(row=current_row, column=1, value=str(capitulo.orden).zfill(2))
+        c_cod.font = font_bold
+        c_cod.fill = fill_capitulo
+        c_desc = ws.cell(row=current_row, column=2, value=capitulo.nombre.upper())
+        c_desc.font = font_bold
+        c_desc.fill = fill_capitulo
+        for c in range(1, 8):
+            ws.cell(row=current_row, column=c).fill = fill_capitulo
         current_row += 1
         
-        # Partidas
-        for p_idx, partida in enumerate(cap.partidas, 1):
-            for col in range(1, 8):
-                ws.cell(row=current_row, column=col).border = border_thin
-                
-            ws.cell(row=current_row, column=1, value=p_idx).font = font_normal
-            ws.cell(row=current_row, column=1).alignment = Alignment(horizontal="center")
+        for partida in capitulo.partidas:
+            c_cod = ws.cell(row=current_row, column=1, value=partida.codigo)
+            c_cod.font = font_normal
+            c_cod.border = border_bottom
             
-            ws.cell(row=current_row, column=2, value=partida.descripcion).font = font_normal
+            c_desc = ws.cell(row=current_row, column=2, value=partida.descripcion)
+            c_desc.font = font_bold
+            c_desc.border = border_bottom
             
-            ws.cell(row=current_row, column=3, value=partida.unidad).font = font_normal
-            ws.cell(row=current_row, column=3).alignment = Alignment(horizontal="center")
+            ws.cell(row=current_row, column=4, value=partida.unidad).font = font_normal
+            ws.cell(row=current_row, column=4).border = border_bottom
             
-            ws.cell(row=current_row, column=4, value=partida.cantidad).font = font_blue
-            ws.cell(row=current_row, column=4).alignment = Alignment(horizontal="center")
+            # Use cantidad_calculada safely!
+            if hasattr(partida, "cantidad_calculada"):
+                qty = partida.cantidad_calculada
+            else:
+                qty = partida.cantidad
             
-            c_precio = ws.cell(row=current_row, column=5, value=partida.precio_unitario)
-            c_precio.font = font_blue
+            ws.cell(row=current_row, column=5, value=qty).font = font_normal
+            ws.cell(row=current_row, column=5).border = border_bottom
+            
+            c_precio = ws.cell(row=current_row, column=6, value=partida.precio_unitario)
+            c_precio.font = font_normal
+            c_precio.border = border_bottom
             c_precio.number_format = '#,##0.00 €'
             
-            c_desc = ws.cell(row=current_row, column=6, value=partida.descuento_porcentaje)
-            c_desc.font = font_blue
-            c_desc.number_format = '0.00"%"'
-            c_desc.alignment = Alignment(horizontal="center")
-            
-            c_imp = ws.cell(row=current_row, column=7, value=partida.importe)
-            c_imp.font = font_normal
+            # Need to recalculate importe because lazy load issues might still pop up if imported differently
+            c_imp = ws.cell(row=current_row, column=7, value=float(qty) * float(partida.precio_con_descuento))
+            c_imp.font = font_bold
+            c_imp.border = border_bottom
             c_imp.number_format = '#,##0.00 €'
+            
+            # Format blank empty spaces
+            for c in range(1, 8):
+                ws.cell(row=current_row, column=c).border = border_bottom
             
             current_row += 1
             
-    # 5. Totals
-    current_row += 1
-    
-    thick_top = Border(top=Side(style='thick', color="000000"))
-    
-    ws.cell(row=current_row, column=6, value="Coste Directo:").font = font_bold
-    ws.cell(row=current_row, column=6).border = thick_top
-    ws.cell(row=current_row, column=6).alignment = Alignment(horizontal="right")
-    
-    c_sub = ws.cell(row=current_row, column=7, value=presupuesto.coste_directo)
-    c_sub.font = font_bold
-    c_sub.number_format = '#,##0.00 €'
-    c_sub.border = thick_top
-    current_row += 1
-    
-    ws.cell(row=current_row, column=6, value=f"IVA ({presupuesto.iva}%):").font = font_bold
-    ws.cell(row=current_row, column=6).alignment = Alignment(horizontal="right")
-    c_iva = ws.cell(row=current_row, column=7, value=presupuesto.importe_iva)
-    c_iva.font = font_bold
-    c_iva.number_format = '#,##0.00 €'
-    current_row += 1
-    
-    thick_top_bottom = Border(top=Side(style='thick', color="000000"), bottom=Side(style='thick', color="000000"))
-    ws.cell(row=current_row, column=6, value="TOTAL:").font = Font(bold=True, size=11, name="Arial")
-    ws.cell(row=current_row, column=6).alignment = Alignment(horizontal="right")
-    ws.cell(row=current_row, column=6).border = thick_top_bottom
-    
-    c_tot = ws.cell(row=current_row, column=7, value=presupuesto.total)
-    c_tot.font = Font(bold=True, size=11, name="Arial")
-    c_tot.number_format = '#,##0.00 €'
-    c_tot.border = thick_top_bottom
-    
-    current_row += 3
-    
-    # 6. Notes
-    ws.cell(row=current_row, column=2, value="NOTAS Y CONDICIONES").font = Font(bold=True, size=10, name="Arial")
-    ws.cell(row=current_row, column=2).border = border_gold_bottom
-    ws.cell(row=current_row, column=3).border = border_gold_bottom
-    ws.cell(row=current_row, column=4).border = border_gold_bottom
-    ws.cell(row=current_row, column=5).border = border_gold_bottom
-    current_row += 1
-    
-    ws.cell(row=current_row, column=2, value="1. Este presupuesto es válido por 30 días.").font = font_normal
-    current_row += 1
-    ws.cell(row=current_row, column=2, value="2. Condiciones de pago: A convenir.").font = font_normal
-    
-    # Adjust widths
-    ws.column_dimensions['A'].width = 8
-    ws.column_dimensions['B'].width = 45
-    ws.column_dimensions['C'].width = 12
-    ws.column_dimensions['D'].width = 12
-    ws.column_dimensions['E'].width = 15
-    ws.column_dimensions['F'].width = 15
-    ws.column_dimensions['G'].width = 15
-    
-    # Optional: Logo
-    if perfil and perfil.logo_ruta and os.path.exists(perfil.logo_ruta):
-        try:
-            img = OpenpyxlImage(perfil.logo_ruta)
-            ratio = 50 / img.height if img.height > 0 else 1
-            img.height = int(img.height * ratio)
-            img.width = int(img.width * ratio)
-            ws.add_image(img, 'B2') # Adding near title
-        except Exception:
-            pass
-            
+            if partida.lineas_medicion:
+                for lm in partida.lineas_medicion:
+                    ws.cell(row=current_row, column=2, value=lm.comentario or "-").font = font_medicion
+                    
+                    detalle_parts = []
+                    if lm.unidades is not None: detalle_parts.append(str(lm.unidades))
+                    if lm.longitud is not None: detalle_parts.append(str(lm.longitud))
+                    if lm.anchura is not None: detalle_parts.append(str(lm.anchura))
+                    if lm.altura is not None: detalle_parts.append(str(lm.altura))
+                    detalle = " x ".join(detalle_parts)
+                    if not detalle: detalle = "-"
+                    
+                    ws.cell(row=current_row, column=3, value=detalle).font = font_medicion
+                    ws.cell(row=current_row, column=5, value=lm.subtotal).font = font_medicion
+                    current_row += 1
+                    
+        # Subtotal
+        ws.merge_cells(f"A{current_row}:F{current_row}")
+        c_sub = ws.cell(row=current_row, column=1, value=f"SUBTOTAL CAPÍTULO {str(capitulo.orden).zfill(2)}")
+        c_sub.font = font_bold
+        c_sub.alignment = Alignment(horizontal="right")
+        
+        # Calculate subtotal manually to avoid lazy loading
+        total_cap = sum(float(getattr(p, "cantidad_calculada", getattr(p, "cantidad", 0))) * float(p.precio_con_descuento) for p in capitulo.partidas)
+        
+        c_val = ws.cell(row=current_row, column=7, value=total_cap)
+        c_val.font = font_bold
+        c_val.number_format = '#,##0.00 €'
+        c_val.border = border_top
+        for c in range(1, 8):
+            ws.cell(row=current_row, column=c).fill = fill_subtotal
+        current_row += 2
+
+    import io
+    from fastapi.responses import StreamingResponse
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
     
-    filename = f"Presupuesto_{presupuesto.codigo or presupuesto.id}.xlsx"
-
+    fecha_str = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"Presupuesto_{presupuesto.codigo or presupuesto.id}_{fecha_str}.xlsx"
+    headers = {
+        'Content-Disposition': f'attachment; filename="{filename}"'
+    }
     return StreamingResponse(
-        buffer,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        buffer, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        headers=headers
     )
+

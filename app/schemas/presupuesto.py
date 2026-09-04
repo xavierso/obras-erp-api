@@ -5,6 +5,32 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.models.presupuesto import EstadoPresupuesto
 
 
+# LINEAS DE MEDICION
+class LineaMedicionBase(BaseModel):
+    comentario: Optional[str] = None
+    unidades: float = 1
+    longitud: Optional[float] = None
+    anchura: Optional[float] = None
+    altura: Optional[float] = None
+
+class LineaMedicionCreate(LineaMedicionBase):
+    pass
+
+class LineaMedicionUpdate(BaseModel):
+    comentario: Optional[str] = None
+    unidades: Optional[float] = None
+    longitud: Optional[float] = None
+    anchura: Optional[float] = None
+    altura: Optional[float] = None
+
+class LineaMedicionOut(LineaMedicionBase):
+    id: int
+    partida_id: int
+    subtotal: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # PARTIDAS
 class PartidaPresupuestoBase(BaseModel):
     codigo: str
@@ -43,8 +69,10 @@ class PartidaPresupuestoOut(PartidaPresupuestoBase):
     id: int
     capitulo_id: int
     precio_con_descuento: float
+    cantidad_calculada: float
     importe: float
     coste_total: float
+    lineas_medicion: List[LineaMedicionOut] = []
 
     model_config = ConfigDict(from_attributes=True)
 

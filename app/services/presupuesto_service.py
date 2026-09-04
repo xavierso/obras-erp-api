@@ -13,7 +13,7 @@ from app.schemas.presupuesto import PresupuestoCreate, PresupuestoUpdate, Capitu
 
 async def get_presupuesto(db: AsyncSession, presupuesto_id: int, empresa_id: int = None) -> Optional[Presupuesto]:
     stmt = select(Presupuesto).options(
-        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas),
+        selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion),
         selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.subcapitulos)
     ).where(Presupuesto.id == presupuesto_id)
     
@@ -109,16 +109,18 @@ async def crear_presupuesto(db: AsyncSession, data: PresupuestoCreate, creador_i
     return await get_presupuesto(db, presupuesto.id)
 
 
-async def actualizar_presupuesto(db: AsyncSession, presupuesto_id: int, data: PresupuestoUpdate) -> Presupuesto:
-    presupuesto = await get_presupuesto(db, presupuesto_id)
+async def actualizar_presupuesto(db: AsyncSession, presupuesto_id: int, data: PresupuestoUpdate, empresa_id: int) -> Presupuesto:
+    presupuesto = await get_presupuesto(db, presupuesto_id, empresa_id)
     if not presupuesto:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
         
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(presupuesto, key, value)
         
     await db.commit()
-    return await get_presupuesto(db, presupuesto_id)
+    return await get_presupuesto(db, presupuesto_id, empresa_id)
 
 
 async def aprobar_presupuesto(db: AsyncSession, presupuesto_id: int, aprobador_id: int, datos_obra: dict = None) -> Presupuesto:
@@ -148,17 +150,20 @@ async def aprobar_presupuesto(db: AsyncSession, presupuesto_id: int, aprobador_i
             nombre=datos_obra.get('obra_nombre') if datos_obra and datos_obra.get('obra_nombre') else f"Obra de: {presupuesto.nombre}",
             direccion=datos_obra.get('obra_direccion') if datos_obra else None,
             estado=EstadoObra.PENDIENTE,
-            usuario_id=aprobador_id
+            empresa_id=presupuesto.empresa_id
         )
         db.add(nueva_obra)
         await db.flush()
         presupuesto.obra_id = nueva_obra.id
     else:
-        # Desactivar otras versiones activas si ya hay obra
-        await db.execute(
-            select(Presupuesto)
-            .where(Presupuesto.obra_id == presupuesto.obra_id, Presupuesto.es_version_activa == True)
-        )
+        if presupuesto.obra_id:
+            # Desactivar otras versiones activas si ya hay obra
+            from sqlalchemy import update
+            await db.execute(
+                update(Presupuesto)
+                .where(Presupuesto.obra_id == presupuesto.obra_id, Presupuesto.es_version_activa == True)
+                .values(es_version_activa=False)
+            )
 
     # Marcar como activa y aprobar
     presupuesto.estado = EstadoPresupuesto.APROBADO
@@ -186,7 +191,7 @@ async def cambiar_estado_presupuesto(db: AsyncSession, presupuesto_id: int, nuev
         presupuesto.es_version_activa = False
     
     await db.commit()
-    return {"id": presupuesto_id, "estado": nuevo_estado.value}
+    return await get_presupuesto(db, presupuesto_id, presupuesto.empresa_id)
 
 
 async def generar_cronograma_desde_presupuesto(db: AsyncSession, presupuesto_id: int, partidas_ids: List[int], usuario_id: int):
@@ -196,6 +201,9 @@ async def generar_cronograma_desde_presupuesto(db: AsyncSession, presupuesto_id:
         
     if presupuesto.estado not in (EstadoPresupuesto.APROBADO, EstadoPresupuesto.EN_EJECUCION):
         raise HTTPException(status_code=400, detail="El presupuesto debe estar aprobado o en ejecución")
+        
+    if not presupuesto.obra_id:
+        raise HTTPException(status_code=400, detail="El presupuesto debe estar asignado a una obra para poder generar un cronograma. Asígnalo a una obra editando el presupuesto.")
         
     partidas_creadas = 0
     from datetime import date
@@ -216,6 +224,7 @@ async def generar_cronograma_desde_presupuesto(db: AsyncSession, presupuesto_id:
                 actividad = ActividadCronograma(
                     nombre=f"[{partida.codigo}] {partida.descripcion}",
                     obra_id=presupuesto.obra_id,
+                    empresa_id=presupuesto.empresa_id,
                     partida_presupuesto_id=partida.id,
                     fecha_inicio=date.today(), # Por defecto, el usuario la cambiará después
                     fecha_fin_prevista=date.today(), 
@@ -236,7 +245,14 @@ async def generar_cronograma_desde_presupuesto(db: AsyncSession, presupuesto_id:
 
 from sqlalchemy.orm import selectinload
 
-async def crear_capitulo(db: AsyncSession, presupuesto_id: int, data: CapituloPresupuestoCreate) -> CapituloPresupuesto:
+async def crear_capitulo(db: AsyncSession, presupuesto_id: int, data: CapituloPresupuestoCreate, empresa_id: int) -> CapituloPresupuesto:
+    result = await db.execute(select(Presupuesto).where(Presupuesto.id == presupuesto_id, Presupuesto.empresa_id == empresa_id))
+    presupuesto = result.scalar_one_or_none()
+    if not presupuesto:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+
     capitulo = CapituloPresupuesto(
         nombre=data.nombre,
         orden=data.orden,
@@ -252,15 +268,28 @@ async def crear_capitulo(db: AsyncSession, presupuesto_id: int, data: CapituloPr
     result = await db.execute(stmt)
     return result.scalar_one()
 
-async def eliminar_capitulo(db: AsyncSession, capitulo_id: int):
-    capitulo = await db.get(CapituloPresupuesto, capitulo_id)
-    if not capitulo:
+async def eliminar_capitulo(db: AsyncSession, capitulo_id: int, empresa_id: int):
+    result = await db.execute(select(CapituloPresupuesto, Presupuesto).join(Presupuesto).where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Capítulo no encontrado")
+    capitulo, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+    
     await db.delete(capitulo)
     await db.commit()
     return {"message": "Capítulo eliminado"}
 
-async def crear_partida(db: AsyncSession, capitulo_id: int, data: PartidaPresupuestoCreate) -> PartidaPresupuesto:
+async def crear_partida(db: AsyncSession, capitulo_id: int, data: PartidaPresupuestoCreate, empresa_id: int) -> PartidaPresupuesto:
+    result = await db.execute(select(CapituloPresupuesto, Presupuesto).join(Presupuesto).where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Capítulo no encontrado")
+    capitulo, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+
     partida = PartidaPresupuesto(
         codigo=data.codigo,
         descripcion=data.descripcion,
@@ -279,23 +308,36 @@ async def crear_partida(db: AsyncSession, capitulo_id: int, data: PartidaPresupu
     )
     db.add(partida)
     await db.commit()
-    await db.refresh(partida)
-    return partida
+    
+    stmt = select(PartidaPresupuesto).options(selectinload(PartidaPresupuesto.lineas_medicion)).where(PartidaPresupuesto.id == partida.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
-async def eliminar_partida(db: AsyncSession, partida_id: int):
-    partida = await db.get(PartidaPresupuesto, partida_id)
-    if not partida:
+async def eliminar_partida(db: AsyncSession, partida_id: int, empresa_id: int):
+    result = await db.execute(select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
+    partida, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+        
     await db.delete(partida)
     await db.commit()
     return {"message": "Partida eliminada"}
 
 from app.schemas.presupuesto import PartidaPresupuestoUpdate
 
-async def actualizar_partida(db: AsyncSession, partida_id: int, data: PartidaPresupuestoUpdate) -> PartidaPresupuesto:
-    partida = await db.get(PartidaPresupuesto, partida_id)
-    if not partida:
+async def actualizar_partida(db: AsyncSession, partida_id: int, data: PartidaPresupuestoUpdate, empresa_id: int) -> PartidaPresupuesto:
+    stmt = select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).options(selectinload(PartidaPresupuesto.lineas_medicion)).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id)
+    result = await db.execute(stmt)
+    row = result.first()
+    
+    if not row:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
+    partida, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
         
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -304,3 +346,58 @@ async def actualizar_partida(db: AsyncSession, partida_id: int, data: PartidaPre
     await db.commit()
     await db.refresh(partida)
     return partida
+
+from app.models.presupuesto import LineaMedicion
+from app.schemas.presupuesto import LineaMedicionCreate, LineaMedicionUpdate
+
+async def crear_linea_medicion(db: AsyncSession, partida_id: int, data: LineaMedicionCreate, empresa_id: int) -> LineaMedicion:
+    result = await db.execute(select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Partida no encontrada")
+    partida, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+
+    medicion = LineaMedicion(
+        comentario=data.comentario,
+        unidades=data.unidades,
+        longitud=data.longitud,
+        anchura=data.anchura,
+        altura=data.altura,
+        partida_id=partida_id
+    )
+    db.add(medicion)
+    await db.commit()
+    await db.refresh(medicion)
+    return medicion
+
+async def actualizar_linea_medicion(db: AsyncSession, medicion_id: int, data: LineaMedicionUpdate, empresa_id: int) -> LineaMedicion:
+    result = await db.execute(select(LineaMedicion, Presupuesto).join(PartidaPresupuesto).join(CapituloPresupuesto).join(Presupuesto).where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Línea de medición no encontrada")
+    medicion, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(medicion, key, value)
+
+    await db.commit()
+    await db.refresh(medicion)
+    return medicion
+
+async def eliminar_linea_medicion(db: AsyncSession, medicion_id: int, empresa_id: int):
+    result = await db.execute(select(LineaMedicion, Presupuesto).join(PartidaPresupuesto).join(CapituloPresupuesto).join(Presupuesto).where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id))
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Línea de medición no encontrada")
+    medicion, presupuesto = row
+    if presupuesto.estado != EstadoPresupuesto.BORRADOR:
+        raise HTTPException(status_code=400, detail="Solo se pueden modificar presupuestos en estado borrador")
+    
+    await db.delete(medicion)
+    await db.commit()
+    return {"message": "Línea de medición eliminada"}

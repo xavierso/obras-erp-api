@@ -25,13 +25,13 @@ async def get_certificacion_resumen_calculado(db: AsyncSession, certificacion: C
     }
 
 
-async def get_certificacion_con_detalles(db: AsyncSession, certificacion_id: int) -> CertificacionOut:
+async def get_certificacion_con_detalles(db: AsyncSession, certificacion_id: int, empresa_id: int) -> CertificacionOut:
     """Obtiene una certificación y calcula todos los acumulados (Medición anterior, origen, etc.)"""
     # 1. Cargar certificación y sus líneas
     res = await db.execute(
         select(Certificacion)
         .options(selectinload(Certificacion.lineas).selectinload(LineaCertificacion.partida))
-        .where(Certificacion.id == certificacion_id)
+        .where(Certificacion.id == certificacion_id, Certificacion.empresa_id == empresa_id)
     )
     cert = res.scalar_one_or_none()
     if not cert:
@@ -121,12 +121,12 @@ async def get_certificacion_con_detalles(db: AsyncSession, certificacion_id: int
         lineas=lineas_out
     )
 
-async def crear_certificacion(db: AsyncSession, presupuesto_id: int, data: CertificacionCreate) -> CertificacionOut:
+async def crear_certificacion(db: AsyncSession, presupuesto_id: int, data: CertificacionCreate, empresa_id: int) -> CertificacionOut:
     # Obtener el presupuesto
     res = await db.execute(
         select(Presupuesto)
         .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas))
-        .where(Presupuesto.id == presupuesto_id)
+        .where(Presupuesto.id == presupuesto_id, Presupuesto.empresa_id == empresa_id)
     )
     presupuesto = res.scalar_one_or_none()
     if not presupuesto:
@@ -145,7 +145,8 @@ async def crear_certificacion(db: AsyncSession, presupuesto_id: int, data: Certi
         numero=nuevo_numero,
         fecha=data.fecha,
         estado=EstadoCertificacion.BORRADOR,
-        observaciones=data.observaciones
+        observaciones=data.observaciones,
+        empresa_id=empresa_id
     )
     db.add(certificacion)
     await db.flush()
@@ -161,11 +162,12 @@ async def crear_certificacion(db: AsyncSession, presupuesto_id: int, data: Certi
             db.add(linea)
 
     await db.commit()
-    return await get_certificacion_con_detalles(db, certificacion.id)
+    return await get_certificacion_con_detalles(db, certificacion.id, empresa_id)
 
 
-async def guardar_mediciones(db: AsyncSession, certificacion_id: int, lineas: List[LineaCertificacionUpdate]) -> CertificacionOut:
-    cert = await db.get(Certificacion, certificacion_id)
+async def guardar_mediciones(db: AsyncSession, certificacion_id: int, lineas: List[LineaCertificacionUpdate], empresa_id: int) -> CertificacionOut:
+    res = await db.execute(select(Certificacion).where(Certificacion.id == certificacion_id, Certificacion.empresa_id == empresa_id))
+    cert = res.scalar_one_or_none()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificación no encontrada")
     
@@ -186,13 +188,14 @@ async def guardar_mediciones(db: AsyncSession, certificacion_id: int, lineas: Li
             linea.cantidad_actual = updates[linea.partida_id]
 
     await db.commit()
-    return await get_certificacion_con_detalles(db, certificacion_id)
+    return await get_certificacion_con_detalles(db, certificacion_id, empresa_id)
 
-async def cambiar_estado(db: AsyncSession, certificacion_id: int, estado: EstadoCertificacion) -> CertificacionOut:
-    cert = await db.get(Certificacion, certificacion_id)
+async def cambiar_estado(db: AsyncSession, certificacion_id: int, estado: EstadoCertificacion, empresa_id: int) -> CertificacionOut:
+    res = await db.execute(select(Certificacion).where(Certificacion.id == certificacion_id, Certificacion.empresa_id == empresa_id))
+    cert = res.scalar_one_or_none()
     if not cert:
         raise HTTPException(status_code=404, detail="Certificación no encontrada")
         
     cert.estado = estado
     await db.commit()
-    return await get_certificacion_con_detalles(db, certificacion_id)
+    return await get_certificacion_con_detalles(db, certificacion_id, empresa_id)
