@@ -17,6 +17,7 @@ from app.models.evento_calendario import EventoCalendario, TipoEventoCalendario,
 from app.models.actividad_cronograma import ActividadCronograma, EstadoActividad
 from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto, EstadoPresupuesto
 from app.models.certificacion import Certificacion, LineaCertificacion, EstadoCertificacion
+from app.models.cuaderno import NotaCuaderno, TipoNotaCuaderno
 
 __all__ = [
     "Usuario",
@@ -54,4 +55,6 @@ __all__ = [
     "Certificacion",
     "LineaCertificacion",
     "EstadoCertificacion",
+    "NotaCuaderno",
+    "TipoNotaCuaderno",
 ]
