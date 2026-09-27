@@ -39,14 +39,15 @@ async def generar_informe(
     from sqlalchemy.orm import selectinload
     result = await db.execute(
         select(Obra)
-        .options(selectinload(Obra.presupuestos))
         .where(Obra.id == obra_id, Obra.empresa_id == empresa_id)
     )
     obra = result.scalar_one_or_none()
     if obra is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Obra no encontrada")
 
-    query = select(Visita).where(Visita.obra_id == obra.id)
+    query = select(Visita).options(
+        selectinload(Visita.archivos)
+    ).where(Visita.obra_id == obra.id)
     if visita_id is not None:
         query = query.where(Visita.id == visita_id)
     

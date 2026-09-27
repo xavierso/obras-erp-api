@@ -154,7 +154,11 @@ async def export_to_excel(
     obras_activas = sum(1 for o in obras if o.estado and o.estado.value not in ["cancelado", "finalizado"])
     
     res_pres = await db.execute(
-        select(Presupuesto).options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas)).where(Presupuesto.empresa_id == empresa_id)
+        select(Presupuesto).options(
+            selectinload(Presupuesto.capitulos)
+            .selectinload(CapituloPresupuesto.partidas)
+            .selectinload(PartidaPresupuesto.lineas_medicion)
+        ).where(Presupuesto.empresa_id == empresa_id)
     )
     presupuestos = res_pres.scalars().all()
     presupuesto_total = sum(p.total or 0 for p in presupuestos)

@@ -110,15 +110,6 @@ def _crear_portada_pdf(obra: Obra, nombre_empresa: str, num_visitas: int, logo_r
         ]
     ]
 
-    # Calcular presupuesto activo
-    presupuesto_activo = next((p for p in obra.presupuestos if p.es_version_activa), None) if getattr(obra, 'presupuestos', None) else None
-    
-    if presupuesto_activo:
-        data.append([
-            basic_cell('PRESUPUESTO APROBADO', f"{presupuesto_activo.total:,.2f} €"),
-            basic_cell('COSTE ESTIMADO', f"{presupuesto_activo.coste_estimado_obra:,.2f} €" if presupuesto_activo.coste_estimado_obra else "—"),
-            Paragraph(f'{style_label}ESTADO PPTO.</font><br/><font size=9><b>{presupuesto_activo.estado.value.upper()}</b></font>', p_center)
-        ])
 
     total_w = PAGE_W - 40*mm
     t = Table(data, colWidths=[total_w*0.4, total_w*0.35, total_w*0.25], rowHeights=[15*mm] * len(data))
