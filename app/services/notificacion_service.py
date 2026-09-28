@@ -15,10 +15,10 @@ from app.models.usuario import Usuario
 logger = logging.getLogger("notificaciones")
 
 
+from app.services.email_service import enviar_email
+
 async def enviar_recordatorio_cita(usuario: Usuario, cita: CitaVisita) -> None:
     referencia = cita.obra_id or cita.nombre_referencia
-    # TODO (Fase B): sustituir este log por el envío real vía FCM,
-    # usando los tokens de dispositivo registrados del usuario.
     logger.info(
         "[RECORDATORIO] Usuario %s (%s) — cita #%s (%s) programada para %s",
         usuario.id,
@@ -27,3 +27,14 @@ async def enviar_recordatorio_cita(usuario: Usuario, cita: CitaVisita) -> None:
         referencia,
         cita.fecha_hora.isoformat(),
     )
+    
+    asunto = f"Recordatorio de visita: {referencia}"
+    html = f"""
+    <h2>Recordatorio de cita</h2>
+    <p>Tienes una visita programada próximamente para la referencia/obra: <strong>{referencia}</strong>.</p>
+    <p>Fecha y hora: {cita.fecha_hora.isoformat()}</p>
+    <br/>
+    <p>Por favor revisa el sistema para más detalles.</p>
+    """
+    
+    await enviar_email(usuario.email, asunto, html)

@@ -23,12 +23,24 @@ def calcular_expiracion() -> datetime:
     return datetime.now(timezone.utc) + timedelta(days=DIAS_VALIDEZ_INVITACION)
 
 
+from app.services.email_service import enviar_email
+
 async def enviar_email_invitacion(email: str, token: str, nombre_admin: str) -> None:
-    # TODO: sustituir por envío real (ej. Resend, SendGrid, SES) cuando
-    # haya un proveedor de email configurado.
     logger.info(
         "[INVITACIÓN] %s ha sido invitado por %s. Token: %s",
         email,
         nombre_admin,
         token,
     )
+    
+    asunto = f"Has sido invitado a unirte a Obras ERP por {nombre_admin}"
+    html = f"""
+    <h2>¡Hola!</h2>
+    <p>{nombre_admin} te ha invitado a formar parte de su equipo en Obras ERP.</p>
+    <p>Para aceptar la invitación y configurar tu cuenta, utiliza el siguiente token de acceso en el sistema de registro:</p>
+    <p><strong>{token}</strong></p>
+    <br/>
+    <p>Este token expirará en {DIAS_VALIDEZ_INVITACION} días.</p>
+    """
+    
+    await enviar_email(email, asunto, html)

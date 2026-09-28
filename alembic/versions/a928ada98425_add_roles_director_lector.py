@@ -19,9 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE rolusuario ADD VALUE IF NOT EXISTS 'director'")
-    op.execute("ALTER TYPE rolusuario ADD VALUE IF NOT EXISTS 'lector'")
-
+    # Solo ejecutar en Postgres
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        op.execute("ALTER TYPE rolusuario ADD VALUE IF NOT EXISTS 'director'")
+        op.execute("ALTER TYPE rolusuario ADD VALUE IF NOT EXISTS 'lector'")
 
 def downgrade() -> None:
     # PostgreSQL doesn't support DROP VALUE for ENUMs.

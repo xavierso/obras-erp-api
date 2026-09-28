@@ -59,6 +59,47 @@ async def revisar_recordatorios_pendientes() -> None:
         await db.commit()
 
 
+from app.models.obra import Obra, EstadoObra
+from app.models.visita import Visita
+from app.services.evento_service import registrar_evento
+
+async def revisar_obras_sin_visitas() -> None:
+    async with AsyncSessionLocal() as db:
+        ahora = datetime.now(timezone.utc)
+        
+        result = await db.execute(
+            select(Obra).where(Obra.estado == EstadoObra.EN_CURSO)
+        )
+        obras_en_curso = result.scalars().all()
+        
+        for obra in obras_en_curso:
+            res_visitas = await db.execute(
+                select(Visita).where(Visita.obra_id == obra.id).order_by(Visita.fecha.desc()).limit(1)
+            )
+            ultima_visita = res_visitas.scalar_one_or_none()
+            
+            # Umbral: 15 días (configurable)
+            UMBRAL_DIAS = 15
+            
+            if ultima_visita:
+                dias_sin_visitas = (ahora.replace(tzinfo=None) - ultima_visita.fecha).days
+            else:
+                dias_sin_visitas = (ahora.replace(tzinfo=None) - obra.created_at.replace(tzinfo=None)).days
+                
+            if dias_sin_visitas >= UMBRAL_DIAS:
+                # Buscar si ya se notificó hoy (para no spamear)
+                # Para simplificar, registramos el evento. En un sistema real llevaríamos un log de avisos.
+                await registrar_evento(
+                    db,
+                    empresa_id=obra.empresa_id,
+                    tipo_evento="ALERTA_SIN_VISITA",
+                    mensaje=f"La obra {obra.nombre} lleva {dias_sin_visitas} días sin recibir una visita.",
+                    entidad_tipo="obra",
+                    entidad_id=obra.id
+                )
+                
+        await db.commit()
+
 _scheduler: AsyncIOScheduler | None = None
 
 
@@ -73,8 +114,16 @@ def iniciar_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
         misfire_grace_time=60,
     )
+    _scheduler.add_job(
+        revisar_obras_sin_visitas,
+        trigger="cron",
+        hour=9, # A las 9:00 AM
+        id="revisar_obras_sin_visitas",
+        replace_existing=True,
+        misfire_grace_time=60*60,
+    )
     _scheduler.start()
-    logger.info("Scheduler de recordatorios iniciado (cada %s min)", INTERVALO_MINUTOS)
+    logger.info("Scheduler de recordatorios iniciado (cada %s min y revisiones diarias)", INTERVALO_MINUTOS)
     return _scheduler
 
 

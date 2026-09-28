@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # ALLOWED_ORIGINS=https://app.tuempresa.com,https://admin.tuempresa.com
     ALLOWED_ORIGINS: str = "*"
 
+    # --- Correo (Resend) ---
+    RESEND_API_KEY: str | None = None
+    FROM_EMAIL: str = "onboarding@resend.dev"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         if self.ALLOWED_ORIGINS.strip() == "*":

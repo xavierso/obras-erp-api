@@ -29,3 +29,8 @@ class PerfilEmpresaOut(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CerrarCuentaInput(BaseModel):
+    nombre_confirmacion: str
+    password: str

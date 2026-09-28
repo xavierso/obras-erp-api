@@ -47,10 +47,10 @@ async def analizar_pdf(file_path: str) -> ResultadoAnalisis:
     # Restrictive Chapter Regex: Optional CAPITULO, then digits, then UPPERCASE text
     capitulo_regex = re.compile(r'^(?:CAP[IÍ]TULO\s+)?(\d{1,3}[\.\d]*)\s+([A-ZÁÉÍÓÚÑ\s\,\.\-]+)$')
     
-    # 1. Standard format: 01.01 Descripcion ud 1 55.00€ 0.00% 55.00€
-    partida_regex_std = re.compile(r'^([\w\.\-]+)\s+(.*?)\s+([a-zA-Z]{1,4})\s+([\d,\.]+)\s+([\d,\.]+)\s*€?(?:\s+[\d,\.]+\s*%)?\s+([\d,\.]+)\s*€?$')
+    # 1. Standard format: 01.01 Descripcion m2 1 55.00€ 0.00% 55.00€
+    partida_regex_std = re.compile(r'^([\w\.\-]+)\s+(.*?)\s+([a-zA-Z0-9]{1,5})\s+([\d,\.]+)\s+([\d,\.]+)\s*€?(?:\s+[\d,\.]+\s*%)?\s+([\d,\.]+)\s*€?$')
     # 2. DIAM format: P-805 Nueva Partida 1 ud 46,00 € 46,00 €
-    partida_regex_diam = re.compile(r'^([\w\.\-]+)\s+(.*?)\s+([\d,\.]+)\s+([a-zA-Z]{1,4})\s+([\d,\.]+)\s*€?\s+([\d,\.]+)\s*€?$')
+    partida_regex_diam = re.compile(r'^([\w\.\-]+)\s+(.*?)\s+([\d,\.]+)\s+([a-zA-Z0-9]{1,5})\s+([\d,\.]+)\s*€?\s+([\d,\.]+)\s*€?$')
     # 3. Strict Medicion Partida: Must start with 01.01 or similar (digit dot digit), then uppercase unit (M2, ML, UD), then text
     partida_regex_med = re.compile(r'^(\d{1,3}\.\d{1,3}(?:\.\d{1,3})?)\s+([A-Z]{1,4}[0-9]?)\s+(.*?)$')
     

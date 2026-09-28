@@ -18,6 +18,7 @@ from app.models.actividad_cronograma import ActividadCronograma, EstadoActividad
 from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto, EstadoPresupuesto
 from app.models.certificacion import Certificacion, LineaCertificacion, EstadoCertificacion
 from app.models.cuaderno import NotaCuaderno, TipoNotaCuaderno
+from app.models.evento_actividad import EventoActividad, EventoActividadLectura
 
 __all__ = [
     "Usuario",
@@ -57,4 +58,6 @@ __all__ = [
     "EstadoCertificacion",
     "NotaCuaderno",
     "TipoNotaCuaderno",
+    "EventoActividad",
+    "EventoActividadLectura",
 ]

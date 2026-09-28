@@ -20,6 +20,7 @@ class Empresa(Base):
     correo: Mapped[str | None] = mapped_column(String(150), nullable=True)
     logo_ruta: Mapped[str | None] = mapped_column(String(500), nullable=True)
     color_principal: Mapped[str] = mapped_column(String(7), nullable=False, default="#1E3A5F")
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

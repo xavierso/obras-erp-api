@@ -49,6 +49,8 @@ async def analizar_presupuesto_endpoint(
             f.write(content)
             
         if filename_lower.endswith('.pdf'):
+            import shutil
+            shutil.copy(temp_path, 'storage/debug_pdf.pdf')
             resultado = await analizar_pdf(temp_path)
         else:
             resultado = await analizar_excel(temp_path)

@@ -35,9 +35,9 @@ from app.routers import (
     exportacion,
     importacion,
     cuaderno,
+    notificaciones,
 )
 from app.services.scheduler_service import detener_scheduler, iniciar_scheduler
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,7 +50,6 @@ async def lifespan(app: FastAPI):
     iniciar_scheduler()
     yield
     detener_scheduler()
-
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -96,6 +95,7 @@ app.include_router(certificaciones.router)
 app.include_router(exportacion.router)
 app.include_router(importacion.router)
 app.include_router(cuaderno.router)
+app.include_router(notificaciones.router)
 
 # Sirve los archivos subidos (fotos, documentos, logos) en /files/...
 Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)

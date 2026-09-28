@@ -35,6 +35,8 @@ class Usuario(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     nombre: Mapped[str] = mapped_column(String(150), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    email_verificado: Mapped[bool] = mapped_column(Boolean, default=False)
+    token_verificacion: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     rol: Mapped[RolUsuario] = mapped_column(
         SAEnum(RolUsuario), default=RolUsuario.ADMIN, nullable=False

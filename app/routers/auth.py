@@ -39,16 +39,38 @@ async def registrar_usuario(datos: UsuarioCreate, db: AsyncSession = Depends(get
     db.add(nueva_empresa)
     await db.flush()
 
+    import secrets
+    from app.services.email_service import enviar_email
+    token_verificacion = secrets.token_urlsafe(32)
+
     nuevo_usuario = Usuario(
         email=datos.email,
         nombre=datos.nombre,
         hashed_password=hash_password(datos.password),
         rol=RolUsuario.ADMIN,
-        empresa_id=nueva_empresa.id
+        empresa_id=nueva_empresa.id,
+        email_verificado=False,
+        token_verificacion=token_verificacion
     )
     db.add(nuevo_usuario)
     await db.commit()
     await db.refresh(nuevo_usuario)
+
+    # Enviar correo de verificación
+    asunto = "Confirma tu cuenta en Obras ERP"
+    # En desarrollo esto apuntará al frontend localhost o donde esté alojado
+    enlace_verificacion = f"http://localhost:3000/confirmar?token={token_verificacion}"
+    html = f"""
+    <h2>¡Hola {datos.nombre}!</h2>
+    <p>Gracias por registrarte en Obras ERP.</p>
+    <p>Por favor, haz clic en el siguiente enlace para confirmar tu cuenta y acceder al sistema:</p>
+    <p><a href="{enlace_verificacion}">Confirmar mi cuenta</a></p>
+    <br/>
+    <p>Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+    <p>{enlace_verificacion}</p>
+    """
+    await enviar_email(datos.email, asunto, html)
+
     return nuevo_usuario
 
 
@@ -72,6 +94,9 @@ async def login(
 
     if not usuario.is_active:
         raise HTTPException(status_code=403, detail="Usuario inactivo")
+
+    # if not usuario.email_verificado:
+    #     raise HTTPException(status_code=403, detail="Por favor, verifica tu correo electrónico antes de iniciar sesión.")
 
     token = create_access_token(usuario.id)
     return Token(access_token=token)
@@ -115,6 +140,7 @@ async def aceptar_invitacion(datos: AceptarInvitacionRequest, db: AsyncSession =
         hashed_password=hash_password(datos.password),
         rol=invitacion.rol,
         empresa_id=invitacion.empresa_id,
+        email_verificado=True,
     )
     db.add(nuevo_usuario)
     invitacion.estado = EstadoInvitacion.ACEPTADA
@@ -123,3 +149,25 @@ async def aceptar_invitacion(datos: AceptarInvitacionRequest, db: AsyncSession =
 
     token = create_access_token(nuevo_usuario.id)
     return Token(access_token=token)
+
+from pydantic import BaseModel
+
+class ConfirmarRequest(BaseModel):
+    token: str
+
+@router.post("/confirmar", status_code=status.HTTP_200_OK)
+async def confirmar_email(datos: ConfirmarRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Usuario).where(Usuario.token_verificacion == datos.token))
+    usuario = result.scalar_one_or_none()
+
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token inválido o expirado")
+
+    if usuario.email_verificado:
+        return {"mensaje": "La cuenta ya estaba verificada"}
+
+    usuario.email_verificado = True
+    usuario.token_verificacion = None
+    await db.commit()
+
+    return {"mensaje": "Cuenta verificada con éxito"}

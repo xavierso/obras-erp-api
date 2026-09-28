@@ -88,3 +88,43 @@ async def actualizar_perfil(
     await db.commit()
     await db.refresh(perfil)
     return _serializar(perfil)
+
+from app.schemas.perfil_empresa import CerrarCuentaInput
+from app.core.security import verify_password
+from sqlalchemy import update
+
+@router.delete("/cerrar-cuenta", status_code=status.HTTP_204_NO_CONTENT)
+async def cerrar_cuenta(
+    datos: CerrarCuentaInput,
+    admin: Usuario = Depends(require_admin),
+    empresa_id: int = Depends(get_empresa_id),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+    empresa = result.scalar_one_or_none()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    if datos.nombre_confirmacion.strip().lower() != empresa.nombre.strip().lower():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El nombre de la empresa no coincide")
+        
+    if not verify_password(datos.password, admin.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contraseña incorrecta")
+
+    # Soft delete
+    empresa.is_active = False
+    
+    # Soft delete all users in the company and free up their emails
+    import time
+    timestamp = int(time.time())
+    
+    await db.execute(
+        update(Usuario)
+        .where(Usuario.empresa_id == empresa_id)
+        .values(
+            is_active=False,
+            email=Usuario.email + f"_deleted_{timestamp}"
+        )
+    )
+    
+    await db.commit()
