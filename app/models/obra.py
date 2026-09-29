@@ -11,7 +11,7 @@ Cambios respecto al original:
 import enum
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, Float, Integer, String, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import Date, Float, Integer, String, DateTime, ForeignKey, Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -28,9 +28,10 @@ class EstadoObra(str, enum.Enum):
 
 class Obra(Base):
     __tablename__ = "obras"
+    __table_args__ = (UniqueConstraint("codigo", "empresa_id", name="uix_obra_codigo_empresa"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    codigo: Mapped[str] = mapped_column(String(30), unique=True, index=True, nullable=False)
+    codigo: Mapped[str] = mapped_column(String(30), index=True, nullable=False)
     nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     cliente: Mapped[str | None] = mapped_column(String(200), nullable=True)
     direccion: Mapped[str | None] = mapped_column(String(300), nullable=True)
