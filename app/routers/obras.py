@@ -1,8 +1,8 @@
-"""
+﻿"""
 CRUD de Obra.
 
-Con el módulo de Equipo: las obras pertenecen a una "empresa" (el admin
-dueño de la cuenta). Los inspectores de esa empresa VEN las mismas obras
+Con el mÃ³dulo de Equipo: las obras pertenecen a una "empresa" (el admin
+dueÃ±o de la cuenta). Los inspectores de esa empresa VEN las mismas obras
 (filtrado por empresa_id, no por su propio usuario_id), pero solo un
 admin puede crear obras o editarlas (require_admin).
 """
@@ -32,7 +32,7 @@ async def _obtener_obra_de_la_empresa(obra_id: int, empresa_id: int, db: AsyncSe
 
 
 async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
-    """Añade total_visitas y ultima_visita_fecha, y resumen económico, calculados aparte."""
+    """AÃ±ade total_visitas y ultima_visita_fecha, y resumen econÃ³mico, calculados aparte."""
     from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto
     from sqlalchemy.orm import selectinload
 
@@ -44,7 +44,7 @@ async def _construir_obra_out(obra: Obra, db: AsyncSession) -> ObraOut:
     item.total_visitas = total or 0
     item.ultima_visita_fecha = ultima
 
-    # Calcular resumen económico
+    # Calcular resumen econÃ³mico
     res_presup = await db.execute(
         select(Presupuesto)
         .options(selectinload(Presupuesto.capitulos).selectinload(CapituloPresupuesto.partidas).selectinload(PartidaPresupuesto.lineas_medicion))
@@ -74,7 +74,7 @@ async def crear_obra(
     empresa_id: int = Depends(get_empresa_id),
     db: AsyncSession = Depends(get_db),
 ):
-    codigo = await generar_codigo_obra(db)
+    codigo = await generar_codigo_obra(db, empresa_id)
     nueva_obra = Obra(
         codigo=codigo,
         nombre=datos.nombre,
@@ -162,9 +162,9 @@ async def actualizar_detalle_obra(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Actualiza los campos de la ficha de obra (nombre, cliente, dirección,
+    Actualiza los campos de la ficha de obra (nombre, cliente, direcciÃ³n,
     fecha de inicio, superficie, progreso visual, texto de estado actual).
-    No toca el enum `estado` formal — para eso está /estado.
+    No toca el enum `estado` formal â€” para eso estÃ¡ /estado.
     """
     obra = await _obtener_obra_de_la_empresa(obra_id, empresa_id, db)
     datos_dict = datos.model_dump(exclude_unset=True)
@@ -186,3 +186,4 @@ async def eliminar_obra(
     await db.delete(obra)
     await db.commit()
     return None
+
