@@ -61,7 +61,7 @@ async def revisar_recordatorios_pendientes() -> None:
 
 from app.models.obra import Obra, EstadoObra
 from app.models.visita import Visita
-from app.services.evento_service import registrar_evento
+
 
 async def revisar_obras_sin_visitas() -> None:
     async with AsyncSessionLocal() as db:
@@ -89,14 +89,7 @@ async def revisar_obras_sin_visitas() -> None:
             if dias_sin_visitas >= UMBRAL_DIAS:
                 # Buscar si ya se notificó hoy (para no spamear)
                 # Para simplificar, registramos el evento. En un sistema real llevaríamos un log de avisos.
-                await registrar_evento(
-                    db,
-                    empresa_id=obra.empresa_id,
-                    tipo_evento="ALERTA_SIN_VISITA",
-                    mensaje=f"La obra {obra.nombre} lleva {dias_sin_visitas} días sin recibir una visita.",
-                    entidad_tipo="obra",
-                    entidad_id=obra.id
-                )
+                pass # TODO: Implement new notification
                 
         await db.commit()
 
@@ -130,3 +123,4 @@ def iniciar_scheduler() -> AsyncIOScheduler:
 def detener_scheduler() -> None:
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)
+

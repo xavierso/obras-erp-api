@@ -84,14 +84,7 @@ async def crear_obra(
     )
     db.add(nueva_obra)
     
-    from app.services.evento_service import registrar_evento
-    await registrar_evento(
-        db,
-        empresa_id=empresa_id,
-        tipo_evento="OBRA_CREADA",
-        mensaje=f"Se ha creado una nueva obra: {datos.nombre}",
-        entidad_tipo="obra"
-    )
+
     
     await db.commit()
     await db.refresh(nueva_obra)

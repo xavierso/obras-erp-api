@@ -62,6 +62,20 @@ app = FastAPI(
 # usa un Bearer token manual (Authorization header), no cookies — no hay
 # necesidad de credenciales de navegador, y así se evita el conflicto de
 # spec entre origen "*" y credenciales (los navegadores lo rechazan).
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    traceback.print_exc()
+    origin = request.headers.get("origin")
+    headers = {"Access-Control-Allow-Origin": origin} if origin else {}
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Error interno del servidor: {str(exc)}"},
+        headers=headers
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
@@ -105,3 +119,4 @@ app.mount("/files", StaticFiles(directory=settings.STORAGE_DIR), name="files")
 @app.get("/", tags=["Salud"])
 async def raiz():
     return {"status": "ok", "app": settings.APP_NAME}
+

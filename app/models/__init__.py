@@ -18,7 +18,8 @@ from app.models.actividad_cronograma import ActividadCronograma, EstadoActividad
 from app.models.presupuesto import Presupuesto, CapituloPresupuesto, PartidaPresupuesto, EstadoPresupuesto
 from app.models.certificacion import Certificacion, LineaCertificacion, EstadoCertificacion
 from app.models.cuaderno import NotaCuaderno, TipoNotaCuaderno
-from app.models.evento_actividad import EventoActividad, EventoActividadLectura
+from app.models.notificacion import Notificacion
+from app.models.reminder import Reminder, ReminderChannel, ReminderStatus
 
 __all__ = [
     "Usuario",
@@ -58,6 +59,7 @@ __all__ = [
     "EstadoCertificacion",
     "NotaCuaderno",
     "TipoNotaCuaderno",
-    "EventoActividad",
-    "EventoActividadLectura",
+    "Notificacion",
+    "Reminder",
 ]
+
