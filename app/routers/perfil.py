@@ -1,9 +1,9 @@
-import re
+﻿import re
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import require_admin, get_empresa_id
+from app.core.deps import require_admin, get_empresa_id, get_current_user
 from app.database import get_db
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario
@@ -40,7 +40,7 @@ async def obtener_perfil(
     if perfil is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aún no has configurado el perfil de tu empresa",
+            detail="AÃºn no has configurado el perfil de tu empresa",
         )
     return _serializar(perfil)
 
@@ -60,7 +60,7 @@ async def actualizar_perfil(
     if not PATRON_COLOR_HEX.match(color_principal):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="color_principal debe ser un hex válido, ej. #1E3A5F",
+            detail="color_principal debe ser un hex vÃ¡lido, ej. #1E3A5F",
         )
 
     result = await db.execute(
@@ -109,7 +109,7 @@ async def cerrar_cuenta(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El nombre de la empresa no coincide")
         
     if not verify_password(datos.password, admin.hashed_password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contraseña incorrecta")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ContraseÃ±a incorrecta")
 
     # Soft delete
     empresa.is_active = False
@@ -128,3 +128,44 @@ async def cerrar_cuenta(
     )
     
     await db.commit()
+
+from app.models.usuario import RolUsuario
+from pydantic import BaseModel
+
+class BorrarUsuarioInput(BaseModel):
+    password: str
+
+@router.delete("/borrar-usuario", status_code=status.HTTP_204_NO_CONTENT)
+async def borrar_usuario(
+    datos: BorrarUsuarioInput,
+    usuario: Usuario = Depends(get_current_user), # Only admins can access /perfil currently, but actually any user can delete their account
+    db: AsyncSession = Depends(get_db),
+):
+    # Verify password
+    if not verify_password(datos.password, usuario.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Contraseña incorrecta")
+
+    # If user is Director, check if they are the ONLY Director
+    if usuario.rol == RolUsuario.DIRECTOR:
+        result = await db.execute(
+            select(Usuario).where(
+                Usuario.empresa_id == usuario.empresa_id,
+                Usuario.rol == RolUsuario.DIRECTOR,
+                Usuario.is_active == True
+            )
+        )
+        directores = result.scalars().all()
+        if len(directores) <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Eres el único Director de la empresa. Asigna otro Director o cierra la empresa antes de borrar tu cuenta."
+            )
+
+    # Soft delete the user
+    import time
+    timestamp = int(time.time())
+    usuario.is_active = False
+    usuario.email = f"deleted_{timestamp}_{usuario.email}"
+    
+    await db.commit()
+
