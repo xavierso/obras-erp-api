@@ -1,1 +1,243 @@
-∢ഢ倊湵潴搠⁥湥牴摡⁡敤氠⁡偁⹉਍਍橅捥瑵牡攠⁮敤慳牲汯潬挠湯ഺ †甠楶潣湲愠灰洮楡㩮灡⁰ⴭ敲潬摡਍∢ഢ昊潲⁭潣瑮硥汴扩椠灭牯⁴獡湹捣湯整瑸慭慮敧൲昊潲⁭慰桴楬⁢浩潰瑲倠瑡൨ഊ昊潲⁭慦瑳灡⁩浩潰瑲䘠獡䅴䥐਍牦浯映獡慴楰洮摩汤睥牡⹥潣獲椠灭牯⁴佃卒楍摤敬慷敲਍牦浯映獡慴楰献慴楴晣汩獥椠灭牯⁴瑓瑡捩楆敬൳ഊ昊潲⁭灡⹰潣普杩椠灭牯⁴敳瑴湩獧਍牦浯愠灰挮牯⹥敳畣楲祴桟慥敤獲椠灭牯⁴敓畣楲祴效摡牥䵳摩汤睥牡൥昊潲⁭灡⹰潲瑵牥⁳浩潰瑲⠠਍††畡桴ബ †挠瑩獡ബ †搠獡扨慯摲ബ †搠捯浵湥潴ⱳ਍††潤畣敭瑮獯束潬慢敬ⱳ਍††煥極潰ബ †椠普牯敭ⱳ਍††扯慲ⱳ਍††数晲汩ബ †瘠獩瑩獡ബ †瘠獩瑩獡束潬慢敬ⱳ਍††楶楳慴彳潰整据慩敬ⱳ਍††慴敲獡ബ †椠据摩湥楣獡ബ †挠污湥慤楲Ɐ਍††牣湯杯慲慭ബ †瀠敲畳異獥潴ⱳ਍††散瑲晩捩捡潩敮ⱳ਍††硥潰瑲捡潩Ɱ਍††浩潰瑲捡潩Ɱ਍††畣摡牥潮ബ †渠瑯晩捩捡潩敮ⱳ਍ഩ昊潲⁭灡⹰敳癲捩獥献档摥汵牥獟牥楶散椠灭牯⁴敤整敮彲捳敨畤敬Ⱳ椠楮楣牡獟档摥汵牥਍਍慀祳据潣瑮硥浴湡条牥਍獡湹⁣敤⁦楬敦灳湡愨灰›慆瑳偁⥉ഺ †⌠䄠敳畧慲焠敵攠楸瑳⁡慬挠牡数慴搠⁥污慭散慮業湥潴氠捯污മ †倠瑡⡨敳瑴湩獧匮佔䅒䕇䑟剉⸩歭楤⡲慰敲瑮㵳牔敵‬硥獩彴歯吽畲⥥਍††‣汅攠煳敵慭搠⁥慬戠獡⁥敤搠瑡獯猠⁥敧瑳潩慮挠湯䄠敬扭捩⠠敶⁲污浥楢⽣਍††‣⁹䕒䑁䕍 胢ₔ低猠⁥獵⁡牣慥整慟汬愠畱귃愠瀠潲썰玳瑩Ɐ瀠牡⁡潮挠潨慣൲ †⌠挠湯氠獡洠杩慲楣湯獥⠠敬捣썩溳愠牰湥楤慤愠氠獡洠污獡攠⁮慬䘠獡⁥⥁മഊ †椠楮楣牡獟档摥汵牥⤨਍††楹汥൤ †搠瑥湥牥獟档摥汵牥⤨਍਍灡⁰‽慆瑳偁⡉਍††楴汴㵥敳瑴湩獧䄮偐也䵁ⱅ਍††敶獲潩㵮〢ㄮ〮Ⱒ਍††楬敦灳湡氽晩獥慰Ɱ਍ഩഊ⌊䌠剏㩓漠썲枭湥獥挠湯楦畧慲汢獥瘠귃⁡䱁佌䕗彄剏䝉义⁓湥⸠湥⁶瘨牥挠湯楦⹧祰⸩਍‣⨢•潰⁲敤敦瑣⁯慰慲搠獥牡潲汬⹯愠汬睯损敲敤瑮慩獬䘽污敳瀠牯畱⁥慬愠灰਍‣獵⁡湵䈠慥敲⁲潴敫⁮慭畮污⠠畁桴牯穩瑡潩⁮敨摡牥Ⱙ渠⁯潣歯敩⁳胢ₔ潮栠祡਍‣敮散楳慤⁤敤挠敲敤据慩敬⁳敤渠癡来摡牯‬⁹獡귃猠⁥癥瑩⁡汥挠湯汦捩潴搠൥⌊猠数⁣湥牴⁥牯杩湥∠∪礠挠敲敤据慩敬⁳氨獯渠癡来摡牯獥氠⁯敲档穡湡⸩਍牦浯映獡慴楰爮獥潰獮獥椠灭牯⁴半乏敒灳湯敳਍浩潰瑲琠慲散慢正਍਍慀灰攮捸灥楴湯桟湡汤牥䔨捸灥楴湯ഩ愊祳据搠晥朠潬慢彬硥散瑰潩彮慨摮敬⡲敲畱獥ⱴ攠捸㨩਍††牴捡扥捡⹫牰湩彴硥⡣ഩ †漠楲楧⁮‽敲畱獥⹴敨摡牥⹳敧⡴漢楲楧≮ഩ †栠慥敤獲㴠笠䄢捣獥⵳潃瑮潲⵬汁潬⵷牏杩湩㨢漠楲楧絮椠⁦牯杩湩攠獬⁥絻਍††敲畴湲䨠体剎獥潰獮⡥਍††††瑳瑡獵损摯㵥〵ⰰ਍††††潣瑮湥㵴≻敤慴汩㨢映䔢牲牯椠瑮牥潮搠汥猠牥楶潤㩲笠瑳⡲硥⥣≽ⱽ਍††††敨摡牥㵳敨摡牥൳ †⤠਍਍灡⹰摡彤業摤敬慷敲ന †䌠剏䵓摩汤睥牡ⱥ਍††污潬彷牯杩湩㵳敳瑴湩獧愮汬睯摥潟楲楧獮江獩ⱴ਍††污潬彷牣摥湥楴污㵳慆獬ⱥ਍††污潬彷敭桴摯㵳≛䕇≔‬倢协≔‬倢呁䡃Ⱒ∠啐≔‬䐢䱅呅≅‬伢呐佉华崢ബ †愠汬睯桟慥敤獲嬽䄢瑵潨楲慺楴湯Ⱒ∠潃瑮湥⵴祔数Ⱒ∠捁散瑰崢ബ⤊਍਍灡⹰摡彤業摤敬慷敲匨捥牵瑩䡹慥敤獲楍摤敬慷敲ഩഊ愊灰椮据畬敤牟畯整⡲畡桴爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥漨牢獡爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥瘨獩瑩獡爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥瘨獩瑩獡束潬慢敬⹳潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲潤畣敭瑮獯爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥搨捯浵湥潴彳汧扯污獥爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥瀨牥楦⹬潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲湩潦浲獥爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥挨瑩獡爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥瘨獩瑩獡灟瑯湥楣污獥爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥搨獡扨慯摲爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥攨畱灩⹯潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲慴敲獡爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥琨牡慥⹳扯慲彳潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲湩楣敤据慩⹳潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲湩楣敤据慩⹳扯慲彳潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲慣敬摮牡潩爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥挨潲潮牧浡⹡潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲牰獥灵敵瑳獯爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥挨牥楴楦慣楣湯獥爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥攨灸牯慴楣湯爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥椨灭牯慴楣湯爮畯整⥲਍灡⹰湩汣摵彥潲瑵牥挨慵敤湲⹯潲瑵牥ഩ愊灰椮据畬敤牟畯整⡲潮楴楦慣楣湯獥爮畯整⥲਍਍‣楓癲⁥潬⁳牡档癩獯猠扵摩獯⠠潦潴ⱳ搠捯浵湥潴ⱳ氠杯獯 湥⼠楦敬⽳⸮മ倊瑡⡨敳瑴湩獧匮佔䅒䕇䑟剉⸩歭楤⡲慰敲瑮㵳牔敵‬硥獩彴歯吽畲⥥਍灡⹰潭湵⡴⼢楦敬≳‬瑓瑡捩楆敬⡳楤敲瑣牯㵹敳瑴湩獧匮佔䅒䕇䑟剉Ⱙ渠浡㵥昢汩獥⤢਍਍਍慀灰朮瑥∨∯‬慴獧嬽匢污摵崢ഩ愊祳据搠晥爠楡⡺㨩਍††敲畴湲笠猢慴畴≳›漢≫‬愢灰㨢猠瑥楴杮⹳偁彐䅎䕍ൽഊ⌊ 琀爀椀最最攀爀 爀愀椀氀眀愀礀 搀攀瀀氀漀礀ഀ਀
+﻿"""
+
+Punto de entrada de la API.
+
+
+
+Ejecutar en desarrollo con:
+
+    uvicorn app.main:app --reload
+
+"""
+
+from contextlib import asynccontextmanager
+
+from pathlib import Path
+
+
+
+from fastapi import FastAPI
+
+from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi.staticfiles import StaticFiles
+
+
+
+from app.config import settings
+
+from app.core.security_headers import SecurityHeadersMiddleware
+
+from app.routers import (
+
+    auth,
+
+    citas,
+
+    dashboard,
+
+    documentos,
+
+    documentos_globales,
+
+    equipo,
+
+    informes,
+
+    obras,
+
+    perfil,
+
+    visitas,
+
+    visitas_globales,
+
+    visitas_potenciales,
+
+    tareas,
+
+    incidencias,
+
+    calendario,
+
+    cronograma,
+
+    presupuestos,
+
+    certificaciones,
+
+    exportacion,
+
+    importacion,
+
+    cuaderno,
+
+
+)
+
+from app.services.scheduler_service import detener_scheduler, iniciar_scheduler
+
+
+
+@asynccontextmanager
+
+async def lifespan(app: FastAPI):
+
+    # Asegura que exista la carpeta de almacenamiento local.
+
+    Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)
+
+    # El esquema de la base de datos se gestiona con Alembic (ver alembic/
+
+    # y README)  NO se usa create_all aqu% a prop%%sito, para no chocar
+
+    # con las migraciones (lecci%%n aprendida a las malas en la Fase A).
+
+
+
+    iniciar_scheduler()
+
+    yield
+
+    detener_scheduler()
+
+
+
+app = FastAPI(
+
+    title=settings.APP_NAME,
+
+    version="0.1.0",
+
+    lifespan=lifespan,
+
+)
+
+
+
+# CORS: or%genes configurables v%a ALLOWED_ORIGINS en .env (ver config.py).
+
+# "*" por defecto para desarrollo. allow_credentials=False porque la app
+
+# usa un Bearer token manual (Authorization header), no cookies  no hay
+
+# necesidad de credenciales de navegador, y as% se evita el conflicto de
+
+# spec entre origen "*" y credenciales (los navegadores lo rechazan).
+
+from fastapi.responses import JSONResponse
+
+import traceback
+
+
+
+@app.exception_handler(Exception)
+
+async def global_exception_handler(request, exc):
+
+    traceback.print_exc()
+
+    origin = request.headers.get("origin")
+
+    headers = {"Access-Control-Allow-Origin": origin} if origin else {}
+
+    return JSONResponse(
+
+        status_code=500,
+
+        content={"detail": f"Error interno del servidor: {str(exc)}"},
+
+        headers=headers
+
+    )
+
+
+
+app.add_middleware(
+
+    CORSMiddleware,
+
+    allow_origins=settings.allowed_origins_list,
+
+    allow_credentials=False,
+
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+
+)
+
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+
+app.include_router(auth.router)
+
+app.include_router(obras.router)
+
+app.include_router(visitas.router)
+
+app.include_router(visitas_globales.router)
+
+app.include_router(documentos.router)
+
+app.include_router(documentos_globales.router)
+
+app.include_router(perfil.router)
+
+app.include_router(informes.router)
+
+app.include_router(citas.router)
+
+app.include_router(visitas_potenciales.router)
+
+app.include_router(dashboard.router)
+
+app.include_router(equipo.router)
+
+app.include_router(tareas.router)
+
+app.include_router(tareas.obras_router)
+
+app.include_router(incidencias.router)
+
+app.include_router(incidencias.obras_router)
+
+app.include_router(calendario.router)
+
+app.include_router(cronograma.router)
+
+app.include_router(presupuestos.router)
+
+app.include_router(certificaciones.router)
+
+app.include_router(exportacion.router)
+
+app.include_router(importacion.router)
+
+app.include_router(cuaderno.router)
+
+
+
+
+# Sirve los archivos subidos (fotos, documentos, logos) en /files/...
+
+Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)
+
+app.mount("/files", StaticFiles(directory=settings.STORAGE_DIR), name="files")
+
+
+
+
+
+@app.get("/", tags=["Salud"])
+
+async def raiz():
+
+    return {"status": "ok", "app": settings.APP_NAME}
+
+
+
+
