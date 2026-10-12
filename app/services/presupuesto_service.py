@@ -269,7 +269,12 @@ async def crear_capitulo(db: AsyncSession, presupuesto_id: int, data: CapituloPr
     return result.scalar_one()
 
 async def eliminar_capitulo(db: AsyncSession, capitulo_id: int, empresa_id: int):
-    result = await db.execute(select(CapituloPresupuesto, Presupuesto).join(Presupuesto).where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(CapituloPresupuesto, Presupuesto)
+        .select_from(CapituloPresupuesto)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Capítulo no encontrado")
@@ -282,7 +287,12 @@ async def eliminar_capitulo(db: AsyncSession, capitulo_id: int, empresa_id: int)
     return {"message": "Capítulo eliminado"}
 
 async def crear_partida(db: AsyncSession, capitulo_id: int, data: PartidaPresupuestoCreate, empresa_id: int) -> PartidaPresupuesto:
-    result = await db.execute(select(CapituloPresupuesto, Presupuesto).join(Presupuesto).where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(CapituloPresupuesto, Presupuesto)
+        .select_from(CapituloPresupuesto)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(CapituloPresupuesto.id == capitulo_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Capítulo no encontrado")
@@ -314,7 +324,13 @@ async def crear_partida(db: AsyncSession, capitulo_id: int, data: PartidaPresupu
     return result.scalar_one()
 
 async def eliminar_partida(db: AsyncSession, partida_id: int, empresa_id: int):
-    result = await db.execute(select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(PartidaPresupuesto, Presupuesto)
+        .select_from(PartidaPresupuesto)
+        .join(CapituloPresupuesto, PartidaPresupuesto.capitulo_id == CapituloPresupuesto.id)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
@@ -329,7 +345,14 @@ async def eliminar_partida(db: AsyncSession, partida_id: int, empresa_id: int):
 from app.schemas.presupuesto import PartidaPresupuestoUpdate
 
 async def actualizar_partida(db: AsyncSession, partida_id: int, data: PartidaPresupuestoUpdate, empresa_id: int) -> PartidaPresupuesto:
-    stmt = select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).options(selectinload(PartidaPresupuesto.lineas_medicion)).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id)
+    stmt = (
+        select(PartidaPresupuesto, Presupuesto)
+        .select_from(PartidaPresupuesto)
+        .join(CapituloPresupuesto, PartidaPresupuesto.capitulo_id == CapituloPresupuesto.id)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .options(selectinload(PartidaPresupuesto.lineas_medicion))
+        .where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id)
+    )
     result = await db.execute(stmt)
     row = result.first()
     
@@ -344,14 +367,21 @@ async def actualizar_partida(db: AsyncSession, partida_id: int, data: PartidaPre
         setattr(partida, key, value)
         
     await db.commit()
-    await db.refresh(partida)
-    return partida
+    stmt_reload = select(PartidaPresupuesto).options(selectinload(PartidaPresupuesto.lineas_medicion)).where(PartidaPresupuesto.id == partida.id)
+    result_reload = await db.execute(stmt_reload)
+    return result_reload.scalar_one()
 
 from app.models.presupuesto import LineaMedicion
 from app.schemas.presupuesto import LineaMedicionCreate, LineaMedicionUpdate
 
 async def crear_linea_medicion(db: AsyncSession, partida_id: int, data: LineaMedicionCreate, empresa_id: int) -> LineaMedicion:
-    result = await db.execute(select(PartidaPresupuesto, Presupuesto).join(CapituloPresupuesto).join(Presupuesto).where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(PartidaPresupuesto, Presupuesto)
+        .select_from(PartidaPresupuesto)
+        .join(CapituloPresupuesto, PartidaPresupuesto.capitulo_id == CapituloPresupuesto.id)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(PartidaPresupuesto.id == partida_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Partida no encontrada")
@@ -373,7 +403,14 @@ async def crear_linea_medicion(db: AsyncSession, partida_id: int, data: LineaMed
     return medicion
 
 async def actualizar_linea_medicion(db: AsyncSession, medicion_id: int, data: LineaMedicionUpdate, empresa_id: int) -> LineaMedicion:
-    result = await db.execute(select(LineaMedicion, Presupuesto).join(PartidaPresupuesto).join(CapituloPresupuesto).join(Presupuesto).where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(LineaMedicion, Presupuesto)
+        .select_from(LineaMedicion)
+        .join(PartidaPresupuesto, LineaMedicion.partida_id == PartidaPresupuesto.id)
+        .join(CapituloPresupuesto, PartidaPresupuesto.capitulo_id == CapituloPresupuesto.id)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Línea de medición no encontrada")
@@ -390,7 +427,14 @@ async def actualizar_linea_medicion(db: AsyncSession, medicion_id: int, data: Li
     return medicion
 
 async def eliminar_linea_medicion(db: AsyncSession, medicion_id: int, empresa_id: int):
-    result = await db.execute(select(LineaMedicion, Presupuesto).join(PartidaPresupuesto).join(CapituloPresupuesto).join(Presupuesto).where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id))
+    result = await db.execute(
+        select(LineaMedicion, Presupuesto)
+        .select_from(LineaMedicion)
+        .join(PartidaPresupuesto, LineaMedicion.partida_id == PartidaPresupuesto.id)
+        .join(CapituloPresupuesto, PartidaPresupuesto.capitulo_id == CapituloPresupuesto.id)
+        .join(Presupuesto, CapituloPresupuesto.presupuesto_id == Presupuesto.id)
+        .where(LineaMedicion.id == medicion_id, Presupuesto.empresa_id == empresa_id)
+    )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="Línea de medición no encontrada")
